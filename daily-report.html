@@ -257,6 +257,28 @@
     }
     .drive-link a { color:#1d4ed8; font-weight:700; }
 
+    /* Feedback card */
+    .feedback-card { display:none; border:2px solid #e0f2fe; }
+    .fb-desc { font-size:13px; color:var(--muted); margin-bottom:14px; line-height:1.65; }
+    .fb-size-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+    .fb-size-btn {
+      border:2px solid var(--border); background:#fff; border-radius:8px;
+      padding:9px 3px; font-size:11px; font-weight:700; cursor:pointer; text-align:center;
+      transition:all .15s; line-height:1.4;
+    }
+    .fb-size-btn.sel { border-color:var(--primary); background:var(--primary-light); color:var(--primary-dark); }
+    .fb-actions { display:grid; grid-template-columns:1fr 2fr; gap:8px; margin-top:14px; }
+    .btn-fb-skip   { background:#f1f5f9; color:var(--muted); }
+    .btn-fb-submit { background:var(--primary); color:#fff; }
+    .fb-thanks {
+      text-align:center; padding:20px 8px;
+      animation:fadeIn .4s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .fb-thanks-icon { font-size:40px; margin-bottom:10px; }
+    .fb-thanks-title { font-size:16px; font-weight:800; margin-bottom:6px; }
+    .fb-thanks-sub   { font-size:12px; color:var(--muted); }
+
     /* Settings modal */
     .overlay {
       display:none; position:fixed; inset:0; background:rgba(0,0,0,.55);
@@ -677,6 +699,121 @@
     </div>
   </div>
 
+  <!--
+  ════════════════════════════════════════════════════════════════
+   Google Forms セットアップ手順
+  ════════════════════════════════════════════════════════════════
+
+  【STEP 1】Google Forms でフォームを作成
+    https://forms.google.com にアクセスして「新しいフォーム」を作成。
+
+  【STEP 2】以下3つの質問を追加
+    Q1（記述式・必須）
+      「日報以外で、現場の書類作業で一番大変なことは何ですか？」
+
+    Q2（ラジオボタン）
+      「会社の規模を教えてください」
+      選択肢: 1-5人 / 6-20人 / 21-50人 / 51人以上
+
+    Q3（記述式・任意）
+      「都道府県（任意）」
+
+  【STEP 3】formResponse URL を取得
+    フォーム右上「︙」→「事前入力リンクを取得」→ 各フィールドに仮の値を入力
+    →「リンクを取得」でURLを確認。このURLから entry.XXXXXXXXXX 形式のIDを読み取る。
+
+    例：https://docs.google.com/forms/d/e/ABCDEF/viewform?entry.123456789=dummy&entry.987654321=dummy
+
+    → Q1 の entry ID = entry.123456789
+    → Q2 の entry ID = entry.987654321
+
+  【STEP 4】コード内の GF_ENTRY を書き換え（daily-report.html の JavaScript セクション）
+    const GF_ENTRY = {
+      q1: 'entry.123456789',   // ← Q1のIDに書き換え
+      q2: 'entry.987654321',   // ← Q2のIDに書き換え
+      q3: 'entry.111222333',   // ← Q3のIDに書き換え
+    };
+
+  【STEP 5】設定画面（⚙️）にformResponse URLを入力
+    フォームのURLの末尾を /viewform → /formResponse に変えて入力。
+    例：https://docs.google.com/forms/d/e/ABCDEF/formResponse
+
+  【注意】
+    - Google Forms はCORSを許可していないため mode:'no-cors' で送信します。
+      送信成功/失敗をJavaScript側では判別できませんが、データは正常に記録されます。
+    - 回答はGoogleフォームの「回答」タブ または スプレッドシートで確認できます。
+  ════════════════════════════════════════════════════════════════
+  -->
+
+  <!-- ── フィードバックカード ── -->
+  <div class="card feedback-card" id="feedbackCard">
+    <div class="card-hd">
+      <div class="card-ico">💬</div>
+      <span class="card-title">30秒アンケート</span>
+      <span class="card-badge">任意</span>
+    </div>
+
+    <!-- 送信完了表示 -->
+    <div class="fb-thanks" id="fbThanks" style="display:none;">
+      <div class="fb-thanks-icon">🙏</div>
+      <div class="fb-thanks-title">ありがとうございました！</div>
+      <div class="fb-thanks-sub">いただいたご意見を今後の改善に活かします。</div>
+    </div>
+
+    <!-- アンケートフォーム -->
+    <div id="fbForm">
+      <p class="fb-desc">開発チームへのご協力をお願いします。1問だけです。</p>
+
+      <!-- Q1: 大変な書類作業（メイン） -->
+      <div class="fg">
+        <label for="fbQ1" style="font-size:13px;font-weight:800;line-height:1.5;">
+          日報以外で、現場の書類作業で<br>一番大変なことは何ですか？
+        </label>
+        <div class="vw" style="margin-top:6px;">
+          <textarea id="fbQ1" placeholder="例：安全書類の記入が複雑、写真台帳の整理に時間がかかる、工事数量計算書の作成が大変..." style="min-height:72px;"></textarea>
+          <button type="button" class="vbtn" data-target="fbQ1">🎤</button>
+        </div>
+      </div>
+
+      <!-- Q2: 会社規模 -->
+      <div class="fg">
+        <label style="margin-bottom:7px;">会社の規模</label>
+        <div class="fb-size-grid">
+          <button type="button" class="fb-size-btn" data-val="1-5人">1〜5人</button>
+          <button type="button" class="fb-size-btn" data-val="6-20人">6〜20人</button>
+          <button type="button" class="fb-size-btn" data-val="21-50人">21〜50人</button>
+          <button type="button" class="fb-size-btn" data-val="51人以上">51人〜</button>
+        </div>
+        <input type="hidden" id="fbSize">
+      </div>
+
+      <!-- Q3: 都道府県 -->
+      <div class="fg">
+        <label for="fbPref">都道府県（任意）</label>
+        <select id="fbPref">
+          <option value="">— 選択しない —</option>
+          <option>北海道</option><option>青森県</option><option>岩手県</option><option>宮城県</option>
+          <option>秋田県</option><option>山形県</option><option>福島県</option><option>茨城県</option>
+          <option>栃木県</option><option>群馬県</option><option>埼玉県</option><option>千葉県</option>
+          <option>東京都</option><option>神奈川県</option><option>新潟県</option><option>富山県</option>
+          <option>石川県</option><option>福井県</option><option>山梨県</option><option>長野県</option>
+          <option>岐阜県</option><option>静岡県</option><option>愛知県</option><option>三重県</option>
+          <option>滋賀県</option><option>京都府</option><option>大阪府</option><option>兵庫県</option>
+          <option>奈良県</option><option>和歌山県</option><option>鳥取県</option><option>島根県</option>
+          <option>岡山県</option><option>広島県</option><option>山口県</option><option>徳島県</option>
+          <option>香川県</option><option>愛媛県</option><option>高知県</option><option>福岡県</option>
+          <option>佐賀県</option><option>長崎県</option><option>熊本県</option><option>大分県</option>
+          <option>宮崎県</option><option>鹿児島県</option><option>沖縄県</option>
+        </select>
+      </div>
+
+      <div class="fb-actions">
+        <button type="button" class="act-btn btn-fb-skip"   id="fbSkip">スキップ</button>
+        <button type="button" class="act-btn btn-fb-submit" id="fbSubmit">送信する →</button>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <!-- Settings modal -->
@@ -711,6 +848,12 @@
         でプロジェクト作成 → Google Drive API有効化 → OAuth2クライアントID（Webアプリ）作成。承認済みオリジンにこのページのURLを追加してください。
       </div>
     </div>
+    <div class="fg">
+      <label>Google Forms レスポンスURL（フィードバック収集・任意）</label>
+      <input type="text" id="gformsUrl" placeholder="https://docs.google.com/forms/d/e/XXXXX/formResponse" autocomplete="off" style="font-size:12px;">
+      <div class="hint">Google Formsを作成後、URLの末尾を <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;">/viewform</code> から <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;">/formResponse</code> に変えて貼り付けてください。</div>
+    </div>
+
     <button class="save-btn" id="saveSettingsBtn">保存する</button>
   </div>
 </div>
@@ -728,17 +871,19 @@ function showToast(msg, type='', dur=3200) {
 }
 
 // ── Settings ────────────────────────────────────────────
-const SK={oai:'dr_oai',mdl:'dr_mdl',gcid:'dr_gcid'};
+const SK={oai:'dr_oai',mdl:'dr_mdl',gcid:'dr_gcid',gf:'dr_gforms'};
 const getS=()=>({
-  openaiKey: localStorage.getItem(SK.oai)||'',
-  model:     localStorage.getItem(SK.mdl)||'gpt-4o',
-  gcid:      localStorage.getItem(SK.gcid)||'',
+  openaiKey:  localStorage.getItem(SK.oai)||'',
+  model:      localStorage.getItem(SK.mdl)||'gpt-4o',
+  gcid:       localStorage.getItem(SK.gcid)||'',
+  gformsUrl:  localStorage.getItem(SK.gf)||'',
 });
 function loadS(){
   const s=getS();
   $('openaiKey').value=s.openaiKey;
   $('modelSelect').value=s.model;
   $('googleClientId').value=s.gcid;
+  $('gformsUrl').value=s.gformsUrl;
 }
 function saveS(){
   const k=$('openaiKey').value.trim();
@@ -746,6 +891,7 @@ function saveS(){
   localStorage.setItem(SK.oai,k);
   localStorage.setItem(SK.mdl,$('modelSelect').value);
   localStorage.setItem(SK.gcid,$('googleClientId').value.trim());
+  localStorage.setItem(SK.gf,$('gformsUrl').value.trim());
   showToast('設定を保存しました ✓','ok');
   closeSettings();
   checkKey();
@@ -1152,11 +1298,13 @@ function showReport(text,data){
   $('loadingCard').style.display='none';
   $('reportCard').style.display='block';
   $('reportCard').scrollIntoView({behavior:'smooth',block:'start'});
+  showFeedback();
 }
 
 $('resetBtn').addEventListener('click',()=>{
   $('mainForm').style.display='block';
   $('reportCard').style.display='none';
+  $('feedbackCard').style.display='none';
   $('submitBtn').disabled=false;
   curReport=''; curData=null;
   window.scrollTo({top:0,behavior:'smooth'});
@@ -1267,6 +1415,81 @@ async function findOrCreateFolder(name){
   const f=await cr.json();
   return f.id;
 }
+
+// ── Feedback / Google Forms ───────────────────────────────
+//
+// ★ Google Forms を作成したら、下記 GF_ENTRY の値を書き換えてください。
+// 取得方法: フォーム編集画面 → 右上「︙」→「事前入力リンクを取得」
+// → 各フィールドに仮テキストを入力 →「リンクを取得」→ URLに entry.XXXXXXXXXX が含まれる
+//
+const GF_ENTRY = {
+  q1: 'entry.XXXXXXXXXX',  // Q1: 大変な書類作業（記述式）  ← ここを書き換え
+  q2: 'entry.YYYYYYYYYY',  // Q2: 会社の規模（ラジオ）      ← ここを書き換え
+  q3: 'entry.ZZZZZZZZZZ',  // Q3: 都道府県（記述式）        ← ここを書き換え
+};
+
+// 会社規模ボタン
+document.querySelectorAll('.fb-size-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.fb-size-btn').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel');
+    $('fbSize').value=b.dataset.val;
+  });
+});
+
+// フィードバックカードを表示（日報生成完了後に呼ぶ）
+function showFeedback(){
+  const card=$('feedbackCard');
+  card.style.display='block';
+  $('fbThanks').style.display='none';
+  $('fbForm').style.display='block';
+  // 前回の入力をリセット
+  $('fbQ1').value='';
+  $('fbSize').value='';
+  $('fbPref').value='';
+  document.querySelectorAll('.fb-size-btn').forEach(b=>b.classList.remove('sel'));
+  // カードが見えるようスクロール（少し遅らせてreportCardの後に流れるように）
+  setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'nearest'}),400);
+}
+
+// 送信
+$('fbSubmit').addEventListener('click',async()=>{
+  const q1=$('fbQ1').value.trim();
+  if(!q1){showToast('回答を入力してください','err');$('fbQ1').focus();return;}
+  const url=getS().gformsUrl;
+  if(!url){
+    // URL未設定でも送信ボタンを押したことを記録してお礼表示（UXを損なわない）
+    showToast('Google Forms URLが未設定のため送信をスキップしました','',3000);
+    showFbThanks();
+    return;
+  }
+  $('fbSubmit').disabled=true;
+  $('fbSubmit').textContent='送信中...';
+  const params=new URLSearchParams();
+  params.set(GF_ENTRY.q1, q1);
+  if($('fbSize').value)  params.set(GF_ENTRY.q2, $('fbSize').value);
+  if($('fbPref').value)  params.set(GF_ENTRY.q3, $('fbPref').value);
+  try{
+    // no-cors: レスポンスは opaque だが Google Forms にはデータが届く
+    await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params});
+  }catch(e){
+    // ネットワークエラーでも表示上は成功扱い（no-corsでは区別不可）
+    console.warn('feedback fetch error (may be no-cors opaque):', e);
+  }
+  $('fbSubmit').disabled=false;
+  $('fbSubmit').textContent='送信する →';
+  showFbThanks();
+});
+
+function showFbThanks(){
+  $('fbForm').style.display='none';
+  $('fbThanks').style.display='block';
+}
+
+// スキップ
+$('fbSkip').addEventListener('click',()=>{
+  $('feedbackCard').style.display='none';
+});
 
 // ── Init ──────────────────────────────────────────────────
 checkKey();
