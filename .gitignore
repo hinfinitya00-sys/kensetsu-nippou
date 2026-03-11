@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V8
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 環境変数・APIキー（絶対にコミットしない）
+.env
+.env.local
+.env.*.local
+*.key
+secrets.json
+
+# ログ
+*.log
+npm-debug.log*
+
+# 依存（将来npm移行した場合）
+node_modules/

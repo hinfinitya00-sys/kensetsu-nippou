@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>土木工事 日報システム</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root {
+      --primary:      #f97316;
+      --primary-dark: #ea580c;
+      --primary-light:#fff7ed;
+      --secondary:    #1e293b;
+      --bg:           #f1f5f9;
+      --card:         #ffffff;
+      --text:         #1e293b;
+      --muted:        #64748b;
+      --border:       #e2e8f0;
+      --success:      #10b981;
+      --error:        #ef4444;
+      --info:         #3b82f6;
+      --r:            12px;
+    }
+    *,*::before,*::after { margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent; }
+    html { scroll-behavior:smooth; }
+    body {
+      font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+      background:var(--bg); color:var(--text); min-height:100vh; padding-bottom:48px;
+    }
+
+    /* Header */
+    header {
+      background:var(--primary); color:#fff;
+      padding:13px 16px; display:flex; align-items:center; justify-content:space-between;
+      position:sticky; top:0; z-index:100; box-shadow:0 2px 10px rgba(0,0,0,.18);
+    }
+    .h-left { display:flex; align-items:center; gap:10px; }
+    .h-icon { font-size:24px; }
+    .h-title { font-size:16px; font-weight:800; }
+    .h-sub   { font-size:11px; opacity:.85; margin-top:1px; }
+    .icon-btn {
+      background:rgba(255,255,255,.22); border:none; color:#fff;
+      width:42px; height:42px; border-radius:9px; font-size:20px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; transition:background .15s;
+    }
+    .icon-btn:active { background:rgba(255,255,255,.38); }
+
+    /* Main */
+    main { max-width:600px; margin:0 auto; padding:14px 12px; }
+
+    /* Card */
+    .card {
+      background:var(--card); border-radius:16px; padding:18px 16px;
+      margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.07);
+    }
+    .card-hd {
+      display:flex; align-items:center; gap:9px; margin-bottom:16px;
+      border-bottom:2px solid var(--bg); padding-bottom:12px;
+    }
+    .card-ico {
+      width:32px; height:32px; background:var(--primary-light); border-radius:8px;
+      display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;
+    }
+    .card-title { font-size:14px; font-weight:800; }
+    .card-badge {
+      margin-left:auto; background:var(--primary); color:#fff;
+      font-size:10px; font-weight:700; padding:2px 8px; border-radius:100px;
+    }
+
+    /* Form */
+    .fg  { margin-bottom:13px; }
+    .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+    label { display:block; font-size:12px; font-weight:700; margin-bottom:5px; }
+    .req  { color:var(--error); margin-left:2px; }
+    .hint { font-size:11px; color:var(--muted); margin-top:4px; }
+
+    input[type=text],input[type=date],input[type=number],select,textarea {
+      width:100%; padding:11px 13px; border:2px solid var(--border); border-radius:9px;
+      font-size:16px; color:var(--text); background:#fff; font-family:inherit;
+      transition:border-color .2s,box-shadow .2s; -webkit-appearance:none;
+    }
+    input:focus,select:focus,textarea:focus {
+      outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(249,115,22,.12);
+    }
+    textarea { resize:vertical; min-height:88px; line-height:1.65; }
+    input[type=number] { -moz-appearance:textfield; }
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; }
+
+    /* Voice wrap */
+    .vw { display:flex; gap:7px; align-items:flex-start; }
+    .vw>input,.vw>textarea { flex:1; }
+    .vbtn {
+      background:var(--primary); color:#fff; border:none; border-radius:9px;
+      width:46px; min-height:46px; font-size:19px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; transition:background .15s,transform .1s; align-self:flex-start;
+    }
+    .vbtn:active { transform:scale(.92); }
+    .vbtn.recording   { background:var(--error); animation:pulse 1s ease-in-out infinite; }
+    .vbtn.transcribing{ background:#f59e0b; cursor:not-allowed; }
+    @keyframes pulse {
+      0%,100%{ box-shadow:0 0 0 0 rgba(239,68,68,.5); }
+      50%    { box-shadow:0 0 0 8px rgba(239,68,68,0); }
+    }
+
+    /* Voice status */
+    .vs-bar {
+      display:none; background:#fef2f2; border:1px solid #fecaca; border-radius:7px;
+      padding:7px 11px; font-size:11px; color:var(--error); margin-top:5px;
+      align-items:center; gap:6px;
+    }
+    .vs-bar.show { display:flex; }
+    .vs-dot {
+      width:7px; height:7px; background:var(--error); border-radius:50%;
+      animation:pulse 1s ease-in-out infinite; flex-shrink:0;
+    }
+
+    /* Weather picker */
+    .wx-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+    .wx-btn {
+      border:2px solid var(--border); background:#fff; border-radius:9px;
+      padding:8px 3px 6px; cursor:pointer; text-align:center; transition:all .15s;
+    }
+    .wx-ico   { font-size:20px; display:block; }
+    .wx-lbl   { font-size:9px; color:var(--muted); margin-top:2px; }
+    .wx-btn.sel { border-color:var(--primary); background:var(--primary-light); }
+    .wx-btn.sel .wx-lbl { color:var(--primary); font-weight:700; }
+
+    /* Worker counts */
+    .worker-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+    .worker-row {
+      border:1px solid var(--border); border-radius:9px; padding:10px 12px;
+      display:flex; align-items:center; justify-content:space-between; gap:8px;
+    }
+    .worker-lbl { font-size:12px; font-weight:600; flex:1; }
+    .worker-ctrl { display:flex; align-items:center; gap:6px; }
+    .wc-btn {
+      background:var(--primary); color:#fff; border:none; border-radius:6px;
+      width:30px; height:30px; font-size:17px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    }
+    .wc-btn:active { background:var(--primary-dark); }
+    .wc-val { font-size:18px; font-weight:800; min-width:28px; text-align:center; }
+    .worker-total {
+      background:var(--primary-light); border:2px solid var(--primary);
+      border-radius:9px; padding:12px 16px;
+      display:flex; align-items:center; justify-content:space-between;
+      margin-top:8px;
+    }
+    .wt-lbl { font-size:13px; font-weight:700; }
+    .wt-val { font-size:26px; font-weight:800; color:var(--primary); }
+
+    /* Equipment list */
+    .eq-row {
+      display:flex; gap:7px; align-items:center; margin-bottom:7px;
+    }
+    .eq-name { flex:1; }
+    .eq-cnt  { width:70px; flex-shrink:0; }
+    .eq-del  {
+      background:#fee2e2; color:var(--error); border:none; border-radius:8px;
+      width:36px; height:44px; font-size:16px; cursor:pointer; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .eq-add {
+      width:100%; border:2px dashed var(--border); background:#f8fafc;
+      border-radius:9px; padding:11px; font-size:13px; font-weight:700;
+      color:var(--muted); cursor:pointer; transition:all .15s; margin-top:2px;
+    }
+    .eq-add:hover { border-color:var(--primary); color:var(--primary); background:var(--primary-light); }
+
+    /* Progress slider */
+    .progress-wrap { display:flex; align-items:center; gap:12px; }
+    input[type=range] {
+      -webkit-appearance:none; appearance:none; flex:1;
+      height:6px; border-radius:3px; border:none; padding:0;
+      background:linear-gradient(to right, var(--primary) 0%, var(--primary) var(--prog,0%), var(--border) var(--prog,0%), var(--border) 100%);
+      cursor:pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance:none; width:24px; height:24px; border-radius:50%;
+      background:var(--primary); cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.2);
+    }
+    .prog-val {
+      font-size:20px; font-weight:800; color:var(--primary);
+      min-width:52px; text-align:right;
+    }
+
+    /* Toggle yes/no */
+    .tg-group { display:flex; gap:7px; }
+    .tg-btn {
+      flex:1; padding:10px; border:2px solid var(--border); border-radius:9px;
+      background:#fff; font-size:14px; font-weight:700; cursor:pointer; text-align:center;
+      transition:all .15s;
+    }
+    .tg-btn.yes.sel { border-color:var(--success); background:#ecfdf5; color:#065f46; }
+    .tg-btn.no.sel  { border-color:var(--muted);   background:#f1f5f9; color:var(--muted); }
+
+    /* Submit */
+    .submit-btn {
+      width:100%;
+      background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+      color:#fff; border:none; border-radius:16px; padding:18px;
+      font-size:18px; font-weight:800; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; gap:9px;
+      box-shadow:0 4px 14px rgba(249,115,22,.38);
+      transition:opacity .2s,transform .15s; margin-bottom:12px;
+    }
+    .submit-btn:active  { transform:scale(.97); }
+    .submit-btn:disabled{ background:#94a3b8; box-shadow:none; cursor:not-allowed; }
+
+    /* Loading */
+    .loading-card { display:none; text-align:center; padding:28px 16px; }
+    .spinner {
+      width:44px; height:44px; border:4px solid var(--border);
+      border-top-color:var(--primary); border-radius:50%;
+      animation:spin .75s linear infinite; margin:0 auto 14px;
+    }
+    @keyframes spin { to{ transform:rotate(360deg); } }
+    .loading-text { font-size:15px; color:var(--muted); }
+    .loading-sub  { font-size:11px; color:var(--muted); margin-top:6px; }
+
+    /* Report card */
+    .report-card { display:none; }
+    .report-ok {
+      display:flex; align-items:center; gap:8px; padding:8px 12px;
+      background:#ecfdf5; border-radius:8px; margin-bottom:12px;
+      font-size:13px; color:var(--success); font-weight:700;
+    }
+    .report-body {
+      background:#f8fafc; border:1px solid var(--border); border-radius:9px;
+      padding:16px; font-size:13px; line-height:1.9; white-space:pre-wrap;
+      word-break:break-word; max-height:460px; overflow-y:auto;
+      font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif;
+    }
+    .action-grid {
+      display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:11px;
+    }
+    .act-btn {
+      padding:12px 5px; border-radius:11px; border:none; font-size:12px; font-weight:700;
+      cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px;
+      transition:opacity .2s,transform .12s;
+    }
+    .act-btn:active { transform:scale(.96); }
+    .act-btn:disabled{ opacity:.5; cursor:not-allowed; }
+    .btn-copy  { background:#e2e8f0; color:var(--secondary); }
+    .btn-dl    { background:#dcfce7; color:#166534; }
+    .btn-drive { background:#eff6ff; color:#1d4ed8; }
+    .btn-print { background:#fef3c7; color:#92400e; }
+    .btn-reset { grid-column:span 3; background:var(--primary-light); color:var(--primary-dark); font-size:13px; }
+    .drive-link {
+      display:none; margin-top:10px; padding:10px 12px;
+      background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;
+      font-size:12px; color:#1d4ed8; word-break:break-all; line-height:1.6;
+    }
+    .drive-link a { color:#1d4ed8; font-weight:700; }
+
+    /* Settings modal */
+    .overlay {
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,.55);
+      z-index:200; padding:16px; overflow-y:auto;
+    }
+    .overlay.open { display:flex; align-items:flex-start; justify-content:center; padding-top:52px; }
+    .modal {
+      background:#fff; border-radius:20px; padding:22px 18px;
+      width:100%; max-width:500px;
+    }
+    .modal-hd {
+      display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;
+    }
+    .modal-title { font-size:16px; font-weight:800; }
+    .close-btn {
+      background:var(--bg); border:none; width:32px; height:32px; border-radius:50%;
+      font-size:17px; cursor:pointer; color:var(--muted);
+      display:flex; align-items:center; justify-content:center;
+    }
+    .modal .fg { margin-bottom:14px; }
+    .modal label { font-size:12px; }
+    .kw { position:relative; }
+    .kw input { padding-right:46px; }
+    .tvis {
+      position:absolute; right:11px; top:50%; transform:translateY(-50%);
+      background:none; border:none; font-size:17px; cursor:pointer; color:var(--muted);
+    }
+    .s-info {
+      background:#fffbeb; border:1px solid #fde68a; border-radius:9px;
+      padding:11px; font-size:11px; line-height:1.7; color:#92400e; margin-bottom:14px;
+    }
+    .s-info a { color:var(--primary-dark); }
+    .save-btn {
+      width:100%; background:var(--primary); color:#fff; border:none;
+      border-radius:9px; padding:13px; font-size:14px; font-weight:700; cursor:pointer;
+    }
+
+    /* Alert banner */
+    .alert-banner {
+      display:none; background:#fef3c7; border:1px solid #fcd34d; border-radius:9px;
+      padding:11px 13px; font-size:12px; color:#92400e; margin-bottom:12px; cursor:pointer;
+      align-items:center; gap:8px;
+    }
+    .alert-banner.show { display:flex; }
+
+    /* iOS HTTPS card */
+    .ios-card {
+      display:none; border:2px solid #fbbf24; font-size:12px; line-height:1.8;
+    }
+    .ios-card .step {
+      background:#f8fafc; border-radius:8px; padding:11px; margin-bottom:8px;
+    }
+    .ios-card code {
+      background:#1e293b; color:#e2e8f0; padding:3px 7px;
+      border-radius:4px; display:inline-block; margin-top:3px; font-size:11px;
+    }
+
+    /* Toast */
+    .toast {
+      position:fixed; bottom:22px; left:50%;
+      transform:translateX(-50%) translateY(80px);
+      padding:10px 20px; border-radius:100px; font-size:13px; font-weight:600;
+      color:#fff; background:var(--secondary); z-index:400;
+      transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+      white-space:nowrap; max-width:calc(100vw - 28px); text-align:center;
+      box-shadow:0 4px 16px rgba(0,0,0,.2);
+    }
+    .toast.show { transform:translateX(-50%) translateY(0); }
+    .toast.ok  { background:var(--success); }
+    .toast.err { background:var(--error); }
+
+    /* Divider */
+    .divider { height:1px; background:var(--bg); margin:12px 0; }
+
+    /* Section label */
+    .sec-label {
+      font-size:11px; font-weight:800; color:var(--muted); text-transform:uppercase;
+      letter-spacing:.8px; margin-bottom:8px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="h-left">
+    <span class="h-icon">🏗️</span>
+    <div>
+      <div class="h-title">土木工事 日報システム</div>
+      <div class="h-sub">法面工事・土工・排水工 対応</div>
+    </div>
+  </div>
+  <button class="icon-btn" id="settingsBtn">⚙️</button>
+</header>
+
+<main>
+  <div class="alert-banner" id="alertBanner">⚠️ <span>APIキーが未設定です。タップして設定してください。</span></div>
+
+  <form id="mainForm">
+
+    <!-- ① 基本情報 -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-ico">📋</div>
+        <span class="card-title">基本情報</span>
+      </div>
+
+      <div class="fg">
+        <label for="projectName">工事名称<span class="req">*</span></label>
+        <div class="vw">
+          <input type="text" id="projectName" placeholder="例：○○地区法面崩壊防止工事" required>
+          <button type="button" class="vbtn" data-target="projectName">🎤</button>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="fg">
+          <label for="siteName">現場名</label>
+          <input type="text" id="siteName" placeholder="例：○○工区">
+        </div>
+        <div class="fg">
+          <label for="projectNo">工事番号</label>
+          <input type="text" id="projectNo" placeholder="例：R06-土-001">
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="fg">
+          <label for="contractor">元請会社名</label>
+          <input type="text" id="contractor" placeholder="例：○○建設㈱">
+        </div>
+        <div class="fg">
+          <label for="supervisor">現場代理人名</label>
+          <input type="text" id="supervisor" placeholder="例：山田 太郎">
+        </div>
+      </div>
+
+      <div class="fg">
+        <label for="workDate">作業日<span class="req">*</span></label>
+        <input type="date" id="workDate" required>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="sec-label">天候</div>
+      <div class="row2">
+        <div class="fg">
+          <label>午前<span class="req">*</span></label>
+          <div class="wx-grid" id="wxAM">
+            <button type="button" class="wx-btn" data-wx="晴れ" data-group="am"><span class="wx-ico">☀️</span><span class="wx-lbl">晴れ</span></button>
+            <button type="button" class="wx-btn" data-wx="曇り" data-group="am"><span class="wx-ico">☁️</span><span class="wx-lbl">曇り</span></button>
+            <button type="button" class="wx-btn" data-wx="雨"   data-group="am"><span class="wx-ico">🌧️</span><span class="wx-lbl">雨</span></button>
+            <button type="button" class="wx-btn" data-wx="雪"   data-group="am"><span class="wx-ico">❄️</span><span class="wx-lbl">雪</span></button>
+            <button type="button" class="wx-btn" data-wx="強風" data-group="am"><span class="wx-ico">💨</span><span class="wx-lbl">強風</span></button>
+          </div>
+          <input type="hidden" id="weatherAM">
+        </div>
+        <div class="fg">
+          <label>午後<span class="req">*</span></label>
+          <div class="wx-grid" id="wxPM">
+            <button type="button" class="wx-btn" data-wx="晴れ" data-group="pm"><span class="wx-ico">☀️</span><span class="wx-lbl">晴れ</span></button>
+            <button type="button" class="wx-btn" data-wx="曇り" data-group="pm"><span class="wx-ico">☁️</span><span class="wx-lbl">曇り</span></button>
+            <button type="button" class="wx-btn" data-wx="雨"   data-group="pm"><span class="wx-ico">🌧️</span><span class="wx-lbl">雨</span></button>
+            <button type="button" class="wx-btn" data-wx="雪"   data-group="pm"><span class="wx-ico">❄️</span><span class="wx-lbl">雪</span></button>
+            <button type="button" class="wx-btn" data-wx="強風" data-group="pm"><span class="wx-ico">💨</span><span class="wx-lbl">強風</span></button>
+          </div>
+          <input type="hidden" id="weatherPM">
+        </div>
+      </div>
+      <div class="hint" id="wxHint" style="color:var(--error);display:none;">午前・午後の天候を選択してください</div>
+    </div>
+
+    <!-- ② 作業員情報 -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-ico">👷</div>
+        <span class="card-title">作業員情報</span>
+      </div>
+
+      <div class="worker-grid">
+        <div class="worker-row">
+          <span class="worker-lbl">土木作業員</span>
+          <div class="worker-ctrl">
+            <button type="button" class="wc-btn" data-op="minus" data-key="civil">－</button>
+            <span class="wc-val" id="w-civil">0</span>
+            <button type="button" class="wc-btn" data-op="plus"  data-key="civil">＋</button>
+          </div>
+        </div>
+        <div class="worker-row">
+          <span class="worker-lbl">重機オペ</span>
+          <div class="worker-ctrl">
+            <button type="button" class="wc-btn" data-op="minus" data-key="ope">－</button>
+            <span class="wc-val" id="w-ope">0</span>
+            <button type="button" class="wc-btn" data-op="plus"  data-key="ope">＋</button>
+          </div>
+        </div>
+        <div class="worker-row">
+          <span class="worker-lbl">交通誘導員</span>
+          <div class="worker-ctrl">
+            <button type="button" class="wc-btn" data-op="minus" data-key="traffic">－</button>
+            <span class="wc-val" id="w-traffic">0</span>
+            <button type="button" class="wc-btn" data-op="plus"  data-key="traffic">＋</button>
+          </div>
+        </div>
+        <div class="worker-row">
+          <span class="worker-lbl">その他</span>
+          <div class="worker-ctrl">
+            <button type="button" class="wc-btn" data-op="minus" data-key="other">－</button>
+            <span class="wc-val" id="w-other">0</span>
+            <button type="button" class="wc-btn" data-op="plus"  data-key="other">＋</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="worker-total">
+        <span class="wt-lbl">合計作業員数</span>
+        <span><span class="wt-val" id="w-total">0</span> <span style="font-size:13px;color:var(--muted);">名</span></span>
+      </div>
+      <input type="hidden" id="workerData">
+    </div>
+
+    <!-- ③ 使用重機・機械 -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-ico">🚜</div>
+        <span class="card-title">使用重機・機械</span>
+      </div>
+      <div id="eqList"></div>
+      <button type="button" class="eq-add" id="eqAdd">＋ 機械を追加</button>
+    </div>
+
+    <!-- ④ 作業内容 -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-ico">🔨</div>
+        <span class="card-title">作業内容</span>
+      </div>
+
+      <div class="fg">
+        <label for="workType">工種<span class="req">*</span></label>
+        <select id="workType" required>
+          <option value="">— 選択してください —</option>
+          <option>法面工事</option>
+          <option>土工</option>
+          <option>排水工</option>
+          <option>法枠工</option>
+          <option>アンカー工</option>
+          <option>吹付工</option>
+          <option>舗装工</option>
+          <option>仮設工</option>
+          <option>その他</option>
+        </select>
+      </div>
+
+      <div class="fg">
+        <label for="workContent">本日の作業内容<span class="req">*</span></label>
+        <div class="vw">
+          <textarea id="workContent" placeholder="作業内容を入力、または🎤で話してください" required></textarea>
+          <button type="button" class="vbtn" data-target="workContent">🎤</button>
+        </div>
+        <div class="vs-bar" id="vsBar"><span class="vs-dot"></span><span id="vsText">音声認識中...</span></div>
+        <div class="hint" id="voiceModeHint"></div>
+      </div>
+
+      <div class="fg">
+        <label>作業進捗率</label>
+        <div class="progress-wrap">
+          <input type="range" id="progressRange" min="0" max="100" value="0" step="5">
+          <span class="prog-val" id="progressVal">0%</span>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label for="tomorrowPlan">明日の作業予定</label>
+        <div class="vw">
+          <textarea id="tomorrowPlan" placeholder="明日の予定を入力、または🎤で話してください"></textarea>
+          <button type="button" class="vbtn" data-target="tomorrowPlan">🎤</button>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label for="remarks">特記事項</label>
+        <div class="vw">
+          <textarea id="remarks" placeholder="現場の気づき、課題、連絡事項など（任意）"></textarea>
+          <button type="button" class="vbtn" data-target="remarks">🎤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑤ 安全管理 -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-ico">⛑️</div>
+        <span class="card-title">安全管理</span>
+      </div>
+
+      <div class="row2">
+        <div class="fg">
+          <label>朝礼実施</label>
+          <div class="tg-group" data-key="morning">
+            <button type="button" class="tg-btn yes" data-val="有">有</button>
+            <button type="button" class="tg-btn no"  data-val="無">無</button>
+          </div>
+          <input type="hidden" id="morning" value="">
+        </div>
+        <div class="fg">
+          <label>KY活動</label>
+          <div class="tg-group" data-key="ky">
+            <button type="button" class="tg-btn yes" data-val="有">有</button>
+            <button type="button" class="tg-btn no"  data-val="無">無</button>
+          </div>
+          <input type="hidden" id="ky" value="">
+        </div>
+      </div>
+
+      <div class="fg">
+        <label>ヒヤリハット</label>
+        <div class="tg-group" data-key="hazard">
+          <button type="button" class="tg-btn yes" data-val="有">有（内容あり）</button>
+          <button type="button" class="tg-btn no"  data-val="無">無</button>
+        </div>
+        <input type="hidden" id="hazard" value="">
+      </div>
+      <div class="fg" id="hazardDetailWrap" style="display:none;">
+        <label for="hazardDetail">ヒヤリハット内容</label>
+        <div class="vw">
+          <textarea id="hazardDetail" placeholder="発生状況・対応内容を記入"></textarea>
+          <button type="button" class="vbtn" data-target="hazardDetail">🎤</button>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label for="safetyNote">安全指示事項</label>
+        <div class="vw">
+          <textarea id="safetyNote" placeholder="本日の安全指示・注意事項（任意）"></textarea>
+          <button type="button" class="vbtn" data-target="safetyNote">🎤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑥ 品質管理 -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-ico">📐</div>
+        <span class="card-title">品質管理</span>
+      </div>
+
+      <div class="fg">
+        <label>検査・立会</label>
+        <div class="tg-group" data-key="inspection">
+          <button type="button" class="tg-btn yes" data-val="有">有</button>
+          <button type="button" class="tg-btn no"  data-val="無">無</button>
+        </div>
+        <input type="hidden" id="inspection" value="">
+      </div>
+      <div class="fg" id="inspDetailWrap" style="display:none;">
+        <label for="inspDetail">検査・立会内容</label>
+        <input type="text" id="inspDetail" placeholder="例：中間検査（土工出来形）">
+      </div>
+
+      <div class="row2">
+        <div class="fg">
+          <label for="photoCount">写真撮影枚数</label>
+          <input type="number" id="photoCount" placeholder="0" min="0">
+        </div>
+        <div class="fg">
+          <label for="temperature">気温（任意）</label>
+          <input type="number" id="temperature" placeholder="例：18" min="-30" max="55">
+        </div>
+      </div>
+    </div>
+
+    <!-- iOS HTTPS案内 -->
+    <div class="card ios-card" id="iosHttpsCard">
+      <div class="card-hd">
+        <div class="card-ico">📱</div>
+        <span class="card-title">iPhoneで音声入力を使う方法</span>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+        iPhoneのSafariはHTTPS（またはlocalhost）でないとマイクにアクセスできません。
+        現在 <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;">file://</code> で開いているため音声入力が使えません。
+      </p>
+      <div class="step"><strong>① ローカルサーバー（同じWi-Fi）</strong><br>
+        <code>python3 -m http.server 8080</code><br>
+        → iPhoneから <code>http://[MacのIP]:8080/daily-report.html</code>
+      </div>
+      <div class="step"><strong>② Netlify Drop（無料・2分）</strong><br>
+        <a href="https://app.netlify.com/drop" target="_blank" rel="noopener" style="color:var(--primary-dark);">app.netlify.com/drop</a> にファイルをドロップ → HTTPS URL発行
+      </div>
+    </div>
+
+    <button type="submit" class="submit-btn" id="submitBtn">
+      <span>✨</span><span>AIで日報を自動作成</span>
+    </button>
+  </form>
+
+  <!-- Loading -->
+  <div class="card loading-card" id="loadingCard">
+    <div class="spinner"></div>
+    <div class="loading-text">AIが日報を作成しています...</div>
+    <div class="loading-sub">全項目を反映した正式な日報を生成中です（10〜20秒）</div>
+  </div>
+
+  <!-- Report -->
+  <div class="card report-card" id="reportCard">
+    <div class="card-hd">
+      <div class="card-ico">📄</div>
+      <span class="card-title">生成された日報</span>
+    </div>
+    <div class="report-ok">✅ <span>工事日報の作成が完了しました</span></div>
+    <div class="report-body" id="reportBody"></div>
+    <div class="drive-link" id="driveLinkBox"></div>
+    <div class="action-grid">
+      <button type="button" class="act-btn btn-copy"  id="copyBtn">📋 コピー</button>
+      <button type="button" class="act-btn btn-dl"    id="dlBtn">💾 保存</button>
+      <button type="button" class="act-btn btn-drive" id="driveBtn">📁 Drive</button>
+      <button type="button" class="act-btn btn-print" id="printBtn">🖨️ 印刷</button>
+      <button type="button" class="act-btn btn-reset" id="resetBtn" style="grid-column:span 2;">🔄 新しい日報を作成</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- Settings modal -->
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <div class="modal-hd">
+      <span class="modal-title">⚙️ API設定</span>
+      <button class="close-btn" id="closeSettings">✕</button>
+    </div>
+    <div class="s-info">
+      ⚠️ APIキーはこのデバイスのlocalStorageにのみ保存されます。共有ファイルへの記載は絶対に避けてください。
+    </div>
+    <div class="fg">
+      <label>OpenAI APIキー<span class="req">*</span></label>
+      <div class="kw"><input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off">
+        <button type="button" class="tvis" data-target="openaiKey">👁️</button></div>
+      <div class="hint"><a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener" style="color:var(--primary-dark);">platform.openai.com/api-keys</a> で取得</div>
+    </div>
+    <div class="fg">
+      <label>使用モデル</label>
+      <select id="modelSelect">
+        <option value="gpt-4o">GPT-4o（推奨・高精度）</option>
+        <option value="gpt-4o-mini">GPT-4o mini（高速・低コスト）</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Google OAuth2 クライアントID（Googleドライブ保存に必要）</label>
+      <div class="kw"><input type="password" id="googleClientId" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off">
+        <button type="button" class="tvis" data-target="googleClientId">👁️</button></div>
+      <div class="hint">
+        <a href="https://console.cloud.google.com/" target="_blank" rel="noopener" style="color:var(--primary-dark);">Google Cloud Console</a>
+        でプロジェクト作成 → Google Drive API有効化 → OAuth2クライアントID（Webアプリ）作成。承認済みオリジンにこのページのURLを追加してください。
+      </div>
+    </div>
+    <button class="save-btn" id="saveSettingsBtn">保存する</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Util ────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+let _tt;
+function showToast(msg, type='', dur=3200) {
+  const t=$('toast'); t.textContent=msg;
+  t.className='toast show'+(type?' '+type:'');
+  clearTimeout(_tt); _tt=setTimeout(()=>{t.className='toast';},dur);
+}
+
+// ── Settings ────────────────────────────────────────────
+const SK={oai:'dr_oai',mdl:'dr_mdl',gcid:'dr_gcid'};
+const getS=()=>({
+  openaiKey: localStorage.getItem(SK.oai)||'',
+  model:     localStorage.getItem(SK.mdl)||'gpt-4o',
+  gcid:      localStorage.getItem(SK.gcid)||'',
+});
+function loadS(){
+  const s=getS();
+  $('openaiKey').value=s.openaiKey;
+  $('modelSelect').value=s.model;
+  $('googleClientId').value=s.gcid;
+}
+function saveS(){
+  const k=$('openaiKey').value.trim();
+  if(!k){showToast('OpenAI APIキーを入力してください','err');return;}
+  localStorage.setItem(SK.oai,k);
+  localStorage.setItem(SK.mdl,$('modelSelect').value);
+  localStorage.setItem(SK.gcid,$('googleClientId').value.trim());
+  showToast('設定を保存しました ✓','ok');
+  closeSettings();
+  checkKey();
+}
+function checkKey(){
+  $('alertBanner').classList.toggle('show',!getS().openaiKey);
+}
+$('settingsBtn').addEventListener('click',()=>{loadS();$('settingsOverlay').classList.add('open');});
+$('closeSettings').addEventListener('click',closeSettings);
+$('settingsOverlay').addEventListener('click',e=>{if(e.target===$('settingsOverlay'))closeSettings();});
+function closeSettings(){$('settingsOverlay').classList.remove('open');}
+$('saveSettingsBtn').addEventListener('click',saveS);
+$('alertBanner').addEventListener('click',()=>{loadS();$('settingsOverlay').classList.add('open');});
+document.querySelectorAll('.tvis').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const i=$(b.dataset.target);
+    i.type=i.type==='password'?'text':'password';
+    b.textContent=i.type==='password'?'👁️':'🙈';
+  });
+});
+
+// ── Default date ─────────────────────────────────────────
+{const d=new Date(),pad=n=>String(n).padStart(2,'0');
+ $('workDate').value=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
+
+// ── Weather picker ────────────────────────────────────────
+document.querySelectorAll('.wx-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const g=b.dataset.group;
+    document.querySelectorAll(`.wx-btn[data-group="${g}"]`).forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel');
+    $(g==='am'?'weatherAM':'weatherPM').value=b.dataset.wx;
+    $('wxHint').style.display='none';
+  });
+});
+
+// ── Worker counts ─────────────────────────────────────────
+const workers={civil:0,ope:0,traffic:0,other:0};
+function updateWorker(){
+  Object.keys(workers).forEach(k=>{$('w-'+k).textContent=workers[k];});
+  const total=Object.values(workers).reduce((a,b)=>a+b,0);
+  $('w-total').textContent=total;
+  $('workerData').value=JSON.stringify(workers);
+}
+document.querySelectorAll('.wc-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const k=b.dataset.key,op=b.dataset.op;
+    if(op==='plus') workers[k]++;
+    else if(workers[k]>0) workers[k]--;
+    updateWorker();
+  });
+});
+
+// ── Equipment list ────────────────────────────────────────
+const eqItems=[];
+function renderEq(){
+  const el=$('eqList');
+  el.innerHTML='';
+  eqItems.forEach((item,i)=>{
+    const row=document.createElement('div');
+    row.className='eq-row';
+    row.innerHTML=`
+      <input type="text" class="eq-name" placeholder="例：バックホウ 0.45㎥" value="${escHtml(item.name)}">
+      <input type="number" class="eq-cnt" placeholder="台数" min="1" max="99" value="${item.count}">
+      <button type="button" class="eq-del" data-i="${i}">🗑️</button>`;
+    row.querySelector('.eq-name').addEventListener('input',e=>{eqItems[i].name=e.target.value;});
+    row.querySelector('.eq-cnt').addEventListener('input',e=>{eqItems[i].count=parseInt(e.target.value)||1;});
+    row.querySelector('.eq-del').addEventListener('click',()=>{eqItems.splice(i,1);renderEq();});
+    el.appendChild(row);
+  });
+}
+$('eqAdd').addEventListener('click',()=>{eqItems.push({name:'',count:1});renderEq();});
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── Progress slider ───────────────────────────────────────
+{const r=$('progressRange'),v=$('progressVal');
+ function upProg(){
+   const p=r.value;
+   v.textContent=p+'%';
+   r.style.setProperty('--prog',p+'%');
+ }
+ r.addEventListener('input',upProg);
+ upProg();
+}
+
+// ── Toggle buttons ────────────────────────────────────────
+document.querySelectorAll('.tg-group').forEach(group=>{
+  const key=group.dataset.key;
+  group.querySelectorAll('.tg-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      group.querySelectorAll('.tg-btn').forEach(b=>{b.classList.remove('sel');});
+      btn.classList.add('sel');
+      $(key).value=btn.dataset.val;
+      // conditional shows
+      if(key==='hazard')    $('hazardDetailWrap').style.display=btn.dataset.val==='有'?'block':'none';
+      if(key==='inspection') $('inspDetailWrap').style.display=btn.dataset.val==='有'?'block':'none';
+    });
+  });
+});
+
+// ── Voice Input ────────────────────────────────────────────
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const canWS=!!SR;
+const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent)&&!window.MSStream;
+const isSecure=!!(window.isSecureContext===true||location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'||location.hostname==='[::1]');
+const canMR=isSecure&&!!(navigator.mediaDevices?.getUserMedia&&window.MediaRecorder);
+const iosNeedsHttps=isIOS&&!isSecure;
+
+// hint
+{const h=$('voiceModeHint');
+ if(canWS)          h.textContent='音声入力: リアルタイム認識（Web Speech API）';
+ else if(canMR)     {h.textContent='音声入力: 録音→文字起こし（Whisper API）';h.style.color='#059669';}
+ else if(iosNeedsHttps){h.textContent='⚠️ iPhoneで音声入力するにはHTTPS配信が必要です（↓参照）';h.style.color='var(--error)';$('iosHttpsCard').style.display='block';}
+ else               {h.textContent='⚠️ 音声入力はこの環境では利用できません';h.style.color='var(--error)';}
+}
+
+let activeRec=null,activeBtn=null,activeTgt=null,mr=null,chunks=[],timerID=null,recSec=0;
+
+document.querySelectorAll('.vbtn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const tgt=btn.dataset.target;
+    if(canWS){
+      if(activeBtn===btn&&activeRec){activeRec.stop();return;}
+      if(activeRec)activeRec.stop();
+      startWS(btn,tgt);
+    }else if(canMR){
+      if(mr&&mr.state==='recording'){mr.stop();return;}
+      startWhisper(btn,tgt);
+    }else if(iosNeedsHttps){
+      showToast('iPhoneの音声入力にはHTTPS配信が必要です','err',5000);
+      $('iosHttpsCard').style.display='block';
+      $('iosHttpsCard').scrollIntoView({behavior:'smooth',block:'center'});
+    }else{
+      showToast('このブラウザは音声入力に対応していません','err');
+    }
+  });
+});
+
+function startWS(btn,tgt){
+  const rec=new SR(); rec.lang='ja-JP'; rec.continuous=true; rec.interimResults=true;
+  activeRec=rec; activeBtn=btn; activeTgt=tgt;
+  btn.classList.add('recording'); btn.textContent='⏹️';
+  showVS('録音中... もう一度押すと停止します');
+  const inp=$(tgt); let base=inp.value;
+  rec.onresult=e=>{
+    let fin='',int='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal)fin+=t; else int+=t;
+    }
+    if(fin){base+=(base?'\n':'')+fin;inp.value=base;}
+    else inp.value=base+(int?(base?'\n':'')+int:'');
+  };
+  rec.onerror=e=>{
+    let m='音声認識エラー';
+    if(e.error==='not-allowed')m='マイクの使用が拒否されました。ブラウザの設定を確認してください。';
+    if(e.error==='no-speech')m='音声が検出されませんでした。';
+    showToast(m,'err'); resetVBtn();
+  };
+  rec.onend=()=>resetVBtn();
+  try{rec.start();}catch(e){showToast('音声認識を開始できませんでした','err');resetVBtn();}
+}
+
+async function startWhisper(btn,tgt){
+  const{openaiKey}=getS();
+  if(!openaiKey){showToast('音声入力にはAPIキーが必要です','err');return;}
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});}
+  catch(e){
+    if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError')
+      showToast('マイクが拒否されました。iPhoneは 設定›Safari›マイク を確認してください。','err',7000);
+    else showToast('マイクにアクセスできません: '+e.message,'err');
+    return;
+  }
+  const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':
+             MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':
+             MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'';
+  try{mr=new MediaRecorder(stream,mime?{mimeType:mime}:{});}
+  catch(e){mr=new MediaRecorder(stream);}
+  chunks=[]; activeBtn=btn;
+  mr.ondataavailable=e=>{if(e.data&&e.data.size>0)chunks.push(e.data);};
+  mr.onstop=async()=>{
+    stream.getTracks().forEach(t=>t.stop()); stopTimer();
+    btn.classList.remove('recording'); btn.classList.add('transcribing');
+    btn.textContent='⏳'; btn.disabled=true;
+    showVS('Whisperで文字起こし中...');
+    try{
+      const am=mr.mimeType||mime||'audio/mp4';
+      const blob=new Blob(chunks,{type:am});
+      if(blob.size<500)throw new Error('録音が短すぎます。もう少し長く話してください。');
+      const text=await callWhisper(blob,am,openaiKey);
+      const inp=$(tgt); inp.value+=(inp.value?'\n':'')+text;
+      showToast('文字起こし完了 ✓','ok');
+    }catch(e){showToast('文字起こしエラー: '+e.message,'err',6000);}
+    finally{btn.classList.remove('transcribing');btn.textContent='🎤';btn.disabled=false;activeBtn=null;mr=null;hideVS();}
+  };
+  mr.onerror=()=>{stream.getTracks().forEach(t=>t.stop());showToast('録音エラー','err');resetVBtn();mr=null;};
+  mr.start(500); btn.classList.add('recording'); btn.textContent='⏹️';
+  startTimer(); showVS('録音中... もう一度押すと停止して文字起こしします');
+}
+
+async function callWhisper(blob,mime,key){
+  const ext=mime.includes('mp4')||mime.includes('m4a')?'m4a':mime.includes('webm')?'webm':mime.includes('ogg')?'ogg':'mp4';
+  const fd=new FormData();
+  fd.append('file',blob,'audio.'+ext);
+  fd.append('model','whisper-1'); fd.append('language','ja'); fd.append('response_format','text');
+  const r=await fetch('https://api.openai.com/v1/audio/transcriptions',
+    {method:'POST',headers:{'Authorization':'Bearer '+key},body:fd});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||'HTTPエラー '+r.status);}
+  const t=(await r.text()).trim();
+  if(!t)throw new Error('文字起こし結果が空でした');
+  return t;
+}
+
+function startTimer(){
+  recSec=0;
+  timerID=setInterval(()=>{
+    recSec++; const m=Math.floor(recSec/60),s=String(recSec%60).padStart(2,'0');
+    $('vsText').textContent=`録音中 ${m}:${s}… もう一度押すと停止`;
+  },1000);
+}
+function stopTimer(){clearInterval(timerID);timerID=null;recSec=0;}
+
+function resetVBtn(){
+  if(activeRec){try{activeRec.stop();}catch(e){}activeRec=null;}
+  if(activeBtn){activeBtn.classList.remove('recording','transcribing');activeBtn.textContent='🎤';activeBtn.disabled=false;activeBtn=null;}
+  activeTgt=null; hideVS();
+}
+function stopAllVoice(){
+  if(activeRec)resetVBtn();
+  if(mr&&mr.state==='recording')mr.stop();
+}
+function showVS(msg){$('vsText').textContent=msg;$('vsBar').classList.add('show');}
+function hideVS(){$('vsBar').classList.remove('show');}
+
+// ── Form submit ───────────────────────────────────────────
+$('mainForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const amW=$('weatherAM').value, pmW=$('weatherPM').value;
+  if(!amW||!pmW){$('wxHint').style.display='block';$('wxHint').scrollIntoView({behavior:'smooth',block:'center'});return;}
+  const{openaiKey,model}=getS();
+  if(!openaiKey){showToast('APIキーを設定してください','err');loadS();$('settingsOverlay').classList.add('open');return;}
+  stopAllVoice();
+  const d=collectForm();
+  $('submitBtn').disabled=true;
+  $('mainForm').style.display='none';
+  $('loadingCard').style.display='block';
+  $('reportCard').style.display='none';
+  try{
+    const rep=await callGPT(d,openaiKey,model);
+    showReport(rep,d);
+  }catch(err){
+    $('mainForm').style.display='block';
+    $('loadingCard').style.display='none';
+    $('submitBtn').disabled=false;
+    showToast('エラー: '+err.message,'err',6000);
+  }
+});
+
+function collectForm(){
+  const wkr=JSON.parse($('workerData').value||'{}');
+  return{
+    projectName:  $('projectName').value.trim(),
+    siteName:     $('siteName').value.trim(),
+    projectNo:    $('projectNo').value.trim(),
+    contractor:   $('contractor').value.trim(),
+    supervisor:   $('supervisor').value.trim(),
+    workDate:     $('workDate').value,
+    weatherAM:    $('weatherAM').value,
+    weatherPM:    $('weatherPM').value,
+    workers:      wkr,
+    workerTotal:  Object.values(wkr).reduce((a,b)=>a+b,0),
+    equipment:    eqItems.filter(e=>e.name.trim()),
+    workType:     $('workType').value,
+    workContent:  $('workContent').value.trim(),
+    progress:     $('progressRange').value,
+    tomorrowPlan: $('tomorrowPlan').value.trim(),
+    remarks:      $('remarks').value.trim(),
+    morning:      $('morning').value,
+    ky:           $('ky').value,
+    hazard:       $('hazard').value,
+    hazardDetail: $('hazardDetail').value.trim(),
+    safetyNote:   $('safetyNote').value.trim(),
+    inspection:   $('inspection').value,
+    inspDetail:   $('inspDetail').value.trim(),
+    photoCount:   $('photoCount').value||'0',
+    temperature:  $('temperature').value,
+  };
+}
+
+async function callGPT(d,key,model){
+  const dt=new Date(d.workDate+'T00:00:00').toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+  const eqStr=d.equipment.length?d.equipment.map(e=>`・${e.name} × ${e.count}台`).join('\n'):'（記録なし）';
+  const wkrStr=`土木作業員:${d.workers.civil||0}名 / 重機オペレーター:${d.workers.ope||0}名 / 交通誘導員:${d.workers.traffic||0}名 / その他:${d.workers.other||0}名 / 合計:${d.workerTotal}名`;
+
+  const user=`
+【工事名称】${d.projectName}
+【現場名】${d.siteName||'—'}
+【工事番号】${d.projectNo||'—'}
+【元請会社】${d.contractor||'—'}
+【現場代理人】${d.supervisor||'—'}
+【作業日】${dt}
+【天候】午前:${d.weatherAM} / 午後:${d.weatherPM}${d.temperature?` / 気温:${d.temperature}℃`:''}
+【作業員構成】${wkrStr}
+【使用重機・機械】
+${eqStr}
+【工種】${d.workType}（進捗率:${d.progress}%）
+【本日の作業内容】
+${d.workContent||'（未記入）'}
+【明日の作業予定】
+${d.tomorrowPlan||'（未記入）'}
+【特記事項】
+${d.remarks||'なし'}
+【安全管理】朝礼:${d.morning||'未記入'} / KY活動:${d.ky||'未記入'} / ヒヤリハット:${d.hazard||'未記入'}${d.hazardDetail?` / 内容:${d.hazardDetail}`:''}
+${d.safetyNote?`【安全指示事項】${d.safetyNote}`:''}
+【品質管理】検査・立会:${d.inspection||'未記入'}${d.inspDetail?`（${d.inspDetail}）`:''} / 写真撮影:${d.photoCount}枚
+`.trim();
+
+  const sys=`あなたは土木・法面工事の経験豊富な現場監督です。
+与えられた現場情報をもとに、A4一枚に収まる正式な工事日報をですます調で作成してください。
+
+## 出力フォーマット（必ずこの通りに）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+　　　　　工　事　日　報
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【工事情報】
+工事名称：〇〇〇〇〇
+工事番号：〇〇〇　　現場名：〇〇〇
+元請会社：〇〇〇　　現場代理人：〇〇〇
+
+【作業日時・天候】
+作業日：〇年〇月〇日（〇）
+天候：午前 〇〇 ／ 午後 〇〇　　気温：〇〇
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【作業員構成】　計〇名
+土木作業員〇名　重機オペ〇名　交通誘導員〇名　その他〇名
+
+【使用重機・機械】
+（機械名と台数を列挙）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【本日の作業概要】
+工種：〇〇　　進捗率：〇〇%
+（2〜3文で簡潔にですます調で）
+
+【作業詳細】
+（入力内容を整形し箇条書きで具体的に。専門用語を適切に使用。）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【安全管理】
+朝礼：〇〇　KY活動：〇〇　ヒヤリハット：〇〇
+（ヒヤリハットがある場合は内容を記載）
+（安全指示事項を記載。入力がない場合も一般的な法面工事の安全注意事項を1〜2点補足。）
+
+【品質管理】
+検査・立会：〇〇（内容）
+写真撮影：〇〇枚
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【明日の作業予定】
+（入力内容を整形。未記入の場合は今日の作業の流れから自然に推測。）
+
+【特記事項・所見】
+（入力内容を記載。未記入なら「特になし」。）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+作成日時：〇年〇月〇日 〇〇:〇〇
+担当者：＿＿＿＿＿＿＿＿＿＿＿＿（署名）
+
+## 注意事項
+- ですます調で統一すること
+- マークダウン記法（**太字**など）は一切使わない
+- A4一枚に収まる分量（800〜1100文字程度）
+- 専門用語（法枠、グラウンドアンカー、切土、盛土、法肩、法尻など）を適切に使用
+- 現在時刻を「作成日時」に記入すること`;
+
+  const r=await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body:JSON.stringify({model,messages:[{role:'system',content:sys},{role:'user',content:user}],max_tokens:2000,temperature:0.55}),
+  });
+  if(!r.ok){
+    const e=await r.json().catch(()=>({}));
+    if(r.status===401)throw new Error('APIキーが無効です。設定を確認してください。');
+    if(r.status===429)throw new Error('API利用制限に達しました。しばらく待ってから再試行してください。');
+    throw new Error(e.error?.message||'HTTPエラー '+r.status);
+  }
+  const dat=await r.json();
+  const txt=dat.choices?.[0]?.message?.content;
+  if(!txt)throw new Error('AIからの応答が空でした。');
+  return txt.trim();
+}
+
+// ── Show report ───────────────────────────────────────────
+let curReport='', curData=null;
+function showReport(text,data){
+  curReport=text; curData=data;
+  $('reportBody').textContent=text;
+  $('driveLinkBox').style.display='none';
+  $('driveLinkBox').innerHTML='';
+  $('loadingCard').style.display='none';
+  $('reportCard').style.display='block';
+  $('reportCard').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+$('resetBtn').addEventListener('click',()=>{
+  $('mainForm').style.display='block';
+  $('reportCard').style.display='none';
+  $('submitBtn').disabled=false;
+  curReport=''; curData=null;
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+
+// ── Copy ──────────────────────────────────────────────────
+$('copyBtn').addEventListener('click',async()=>{
+  try{await navigator.clipboard.writeText(curReport);}
+  catch{const ta=document.createElement('textarea');ta.value=curReport;ta.style='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);}
+  showToast('クリップボードにコピーしました ✓','ok');
+});
+
+// ── Download ──────────────────────────────────────────────
+$('dlBtn').addEventListener('click',()=>{
+  if(!curReport)return;
+  const dt=(curData?.workDate||'').replace(/-/g,'')||'unknown';
+  const nm=(curData?.projectName||'工事').replace(/[\\/:*?"<>|]/g,'_').slice(0,20);
+  const fn=`工事日報_${dt}_${nm}.txt`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([curReport],{type:'text/plain;charset=utf-8'}));
+  a.download=fn; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  showToast('保存しました ✓','ok');
+});
+
+// ── Print ─────────────────────────────────────────────────
+$('printBtn').addEventListener('click',()=>{
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>工事日報</title>
+<style>body{font-family:'Hiragino Sans','Yu Gothic',sans-serif;font-size:12pt;line-height:1.9;padding:20mm;white-space:pre-wrap;word-break:break-word;}@page{size:A4;margin:20mm;}</style>
+</head><body>${escHtml(curReport)}</body></html>`);
+  w.document.close(); w.focus(); w.print(); w.close();
+});
+
+// ── Google Drive ──────────────────────────────────────────
+let driveToken=null, driveClient=null;
+
+function initDriveClient(){
+  const{gcid}=getS();
+  if(!gcid||!window.google?.accounts?.oauth2)return false;
+  driveClient=google.accounts.oauth2.initTokenClient({
+    client_id:gcid,
+    scope:'https://www.googleapis.com/auth/drive.file',
+    callback:async resp=>{
+      if(resp.error){showToast('Google認証エラー: '+resp.error,'err');$('driveBtn').disabled=false;return;}
+      driveToken=resp.access_token;
+      await doUploadToDrive();
+    },
+  });
+  return true;
+}
+
+$('driveBtn').addEventListener('click',async()=>{
+  if(!curReport)return;
+  const{gcid}=getS();
+  if(!gcid){showToast('Google クライアントIDが未設定です','err');loadS();$('settingsOverlay').classList.add('open');return;}
+  if(!window.google?.accounts?.oauth2){showToast('Google APIを読み込み中です。少し待ってから再試行してください。','err');return;}
+  $('driveBtn').disabled=true;
+  if(!driveClient)initDriveClient();
+  if(driveToken){await doUploadToDrive();}
+  else{driveClient.requestAccessToken({prompt:'consent'});}
+});
+
+async function doUploadToDrive(){
+  showToast('Googleドライブに保存中...','',10000);
+  try{
+    // 「建設日報」フォルダを検索または作成
+    const folderId=await findOrCreateFolder('建設日報');
+    const dt=(curData?.workDate||'').replace(/-/g,'')||'unknown';
+    const nm=(curData?.projectName||'工事').replace(/[\\/:*?"<>|]/g,'_').slice(0,20);
+    const fn=`工事日報_${dt}_${nm}.txt`;
+    // ファイルアップロード
+    const bd='-------314159265358979323846';
+    const meta=JSON.stringify({name:fn,mimeType:'text/plain',parents:[folderId]});
+    const body=[`--${bd}`,'Content-Type: application/json; charset=UTF-8','',meta,`--${bd}`,'Content-Type: text/plain; charset=UTF-8','',curReport,`--${bd}--`].join('\r\n');
+    const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+driveToken,'Content-Type':`multipart/related; boundary="${bd}"`},
+      body,
+    });
+    if(!res.ok){
+      const e=await res.json().catch(()=>({}));
+      if(res.status===401){driveToken=null;driveClient?.requestAccessToken({prompt:''});return;}
+      throw new Error(e.error?.message||'HTTPエラー '+res.status);
+    }
+    const file=await res.json();
+    showToast('Driveの「建設日報」フォルダに保存しました ✓','ok',5000);
+    const lb=$('driveLinkBox');
+    lb.style.display='block';
+    lb.innerHTML=`📁 <strong>Googleドライブに保存完了</strong><br>フォルダ: 建設日報 / ファイル: ${escHtml(file.name)}<br><a href="${escHtml(file.webViewLink)}" target="_blank" rel="noopener">ドライブで開く →</a>`;
+  }catch(e){
+    showToast('Drive保存エラー: '+e.message,'err',6000);
+  }finally{
+    $('driveBtn').disabled=false;
+  }
+}
+
+async function findOrCreateFolder(name){
+  const qName=name.replace(/'/g,"\\'");
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${qName}'+and+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id,name)`,
+    {headers:{'Authorization':'Bearer '+driveToken}});
+  const d=await r.json();
+  if(d.files?.length)return d.files[0].id;
+  const cr=await fetch('https://www.googleapis.com/drive/v3/files',{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+driveToken,'Content-Type':'application/json'},
+    body:JSON.stringify({name,mimeType:'application/vnd.google-apps.folder'}),
+  });
+  const f=await cr.json();
+  return f.id;
+}
+
+// ── Init ──────────────────────────────────────────────────
+checkKey();
+window.addEventListener('load',()=>{
+  const t=setInterval(()=>{
+    if(window.google?.accounts?.oauth2){clearInterval(t);initDriveClient();}
+  },300);
+  setTimeout(()=>clearInterval(t),8000);
+});
+</script>
+</body>
+</html>
