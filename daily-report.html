@@ -153,23 +153,51 @@
     .wt-lbl { font-size:13px; font-weight:700; }
     .wt-val { font-size:26px; font-weight:800; color:var(--primary); }
 
-    /* Equipment list */
-    .eq-row {
-      display:flex; gap:7px; align-items:center; margin-bottom:7px;
+    /* Equipment — preset buttons */
+    .eq-presets {
+      display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;
     }
-    .eq-name { flex:1; }
-    .eq-cnt  { width:70px; flex-shrink:0; }
-    .eq-del  {
-      background:#fee2e2; color:var(--error); border:none; border-radius:8px;
-      width:36px; height:44px; font-size:16px; cursor:pointer; flex-shrink:0;
+    .eq-preset-btn {
+      border:1.5px solid var(--border); background:#f8fafc; border-radius:8px;
+      padding:7px 10px; font-size:11.5px; font-weight:600; cursor:pointer;
+      transition:all .15s; white-space:nowrap; color:var(--text);
+    }
+    .eq-preset-btn:active { transform:scale(.95); }
+    .eq-preset-btn.added  { border-color:var(--primary); background:var(--primary-light); color:var(--primary-dark); }
+    .eq-other-btn {
+      border:1.5px dashed var(--primary); background:var(--primary-light);
+      color:var(--primary-dark);
+    }
+    .eq-custom-row {
+      display:flex; gap:7px; margin-bottom:10px;
+    }
+    .eq-custom-row input { flex:1; }
+    .eq-custom-add {
+      background:var(--primary); color:#fff; border:none; border-radius:9px;
+      padding:0 16px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;
+      flex-shrink:0; transition:opacity .15s;
+    }
+    /* Equipment — selected tags */
+    .eq-tags { display:flex; flex-direction:column; gap:7px; }
+    .eq-tag {
+      display:flex; align-items:center; gap:8px;
+      background:var(--primary-light); border:1px solid #fed7aa;
+      border-radius:9px; padding:9px 10px;
+    }
+    .eq-tag-name { flex:1; font-size:12.5px; font-weight:700; }
+    .eq-tag-ctrl { display:flex; align-items:center; gap:5px; flex-shrink:0; }
+    .eq-tag-cbtn {
+      background:var(--primary); color:#fff; border:none; border-radius:6px;
+      width:26px; height:26px; font-size:15px; cursor:pointer;
       display:flex; align-items:center; justify-content:center;
     }
-    .eq-add {
-      width:100%; border:2px dashed var(--border); background:#f8fafc;
-      border-radius:9px; padding:11px; font-size:13px; font-weight:700;
-      color:var(--muted); cursor:pointer; transition:all .15s; margin-top:2px;
+    .eq-tag-cbtn:active { background:var(--primary-dark); }
+    .eq-tag-count { font-size:16px; font-weight:800; min-width:20px; text-align:center; }
+    .eq-tag-unit  { font-size:11px; color:var(--muted); }
+    .eq-tag-del   {
+      background:none; border:none; color:#f97316; font-size:18px;
+      cursor:pointer; padding:0 3px; flex-shrink:0; line-height:1;
     }
-    .eq-add:hover { border-color:var(--primary); color:var(--primary); background:var(--primary-light); }
 
     /* Progress slider */
     .progress-wrap { display:flex; align-items:center; gap:12px; }
@@ -505,8 +533,27 @@
         <div class="card-ico">🚜</div>
         <span class="card-title">使用重機・機械</span>
       </div>
-      <div id="eqList"></div>
-      <button type="button" class="eq-add" id="eqAdd">＋ 機械を追加</button>
+      <!-- プリセットボタン -->
+      <div class="eq-presets">
+        <button type="button" class="eq-preset-btn" data-name="バックホウ 0.45㎥">バックホウ 0.45㎥</button>
+        <button type="button" class="eq-preset-btn" data-name="バックホウ 0.7㎥">バックホウ 0.7㎥</button>
+        <button type="button" class="eq-preset-btn" data-name="ブルドーザー">ブルドーザー</button>
+        <button type="button" class="eq-preset-btn" data-name="ダンプトラック 10t">ダンプ 10t</button>
+        <button type="button" class="eq-preset-btn" data-name="ダンプトラック 4t">ダンプ 4t</button>
+        <button type="button" class="eq-preset-btn" data-name="クレーン車">クレーン車</button>
+        <button type="button" class="eq-preset-btn" data-name="高所作業車">高所作業車</button>
+        <button type="button" class="eq-preset-btn" data-name="コンクリートポンプ車">コンクリートポンプ車</button>
+        <button type="button" class="eq-preset-btn" data-name="振動ローラー">振動ローラー</button>
+        <button type="button" class="eq-preset-btn" data-name="モーターグレーダー">モーターグレーダー</button>
+        <button type="button" class="eq-preset-btn eq-other-btn" id="eqOtherBtn">その他 ＋</button>
+      </div>
+      <!-- その他（カスタム入力） -->
+      <div class="eq-custom-row" id="eqCustomWrap" style="display:none;">
+        <input type="text" id="eqCustomInput" placeholder="機械名を入力（例：タイヤローラー）" autocomplete="off">
+        <button type="button" class="eq-custom-add" id="eqCustomAdd">追加</button>
+      </div>
+      <!-- 選択済みタグ -->
+      <div class="eq-tags" id="eqTags"></div>
     </div>
 
     <!-- ④ 作業内容 -->
@@ -945,26 +992,75 @@ document.querySelectorAll('.wc-btn').forEach(b=>{
   });
 });
 
-// ── Equipment list ────────────────────────────────────────
+// ── Equipment (preset + tag UI) ───────────────────────────
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
 const eqItems=[];
-function renderEq(){
-  const el=$('eqList');
+
+function renderEqTags(){
+  const el=$('eqTags');
   el.innerHTML='';
+  // プリセットボタンの「追加済み」スタイルを更新
+  document.querySelectorAll('.eq-preset-btn[data-name]').forEach(b=>{
+    b.classList.toggle('added', eqItems.some(e=>e.name===b.dataset.name));
+  });
   eqItems.forEach((item,i)=>{
-    const row=document.createElement('div');
-    row.className='eq-row';
-    row.innerHTML=`
-      <input type="text" class="eq-name" placeholder="例：バックホウ 0.45㎥" value="${escHtml(item.name)}">
-      <input type="number" class="eq-cnt" placeholder="台数" min="1" max="99" value="${item.count}">
-      <button type="button" class="eq-del" data-i="${i}">🗑️</button>`;
-    row.querySelector('.eq-name').addEventListener('input',e=>{eqItems[i].name=e.target.value;});
-    row.querySelector('.eq-cnt').addEventListener('input',e=>{eqItems[i].count=parseInt(e.target.value)||1;});
-    row.querySelector('.eq-del').addEventListener('click',()=>{eqItems.splice(i,1);renderEq();});
-    el.appendChild(row);
+    const tag=document.createElement('div');
+    tag.className='eq-tag';
+    tag.innerHTML=`
+      <span class="eq-tag-name">${escHtml(item.name)}</span>
+      <div class="eq-tag-ctrl">
+        <button type="button" class="eq-tag-cbtn" data-op="minus" data-i="${i}">－</button>
+        <span class="eq-tag-count">${item.count}</span>
+        <button type="button" class="eq-tag-cbtn" data-op="plus"  data-i="${i}">＋</button>
+        <span class="eq-tag-unit">台</span>
+      </div>
+      <button type="button" class="eq-tag-del" data-i="${i}" title="削除">✕</button>`;
+    tag.querySelectorAll('.eq-tag-cbtn').forEach(b=>{
+      b.addEventListener('click',()=>{
+        const idx=parseInt(b.dataset.i);
+        if(b.dataset.op==='plus') eqItems[idx].count++;
+        else if(eqItems[idx].count>1) eqItems[idx].count--;
+        renderEqTags();
+      });
+    });
+    tag.querySelector('.eq-tag-del').addEventListener('click',()=>{
+      eqItems.splice(i,1); renderEqTags();
+    });
+    el.appendChild(tag);
   });
 }
-$('eqAdd').addEventListener('click',()=>{eqItems.push({name:'',count:1});renderEq();});
-function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function addEqItem(name){
+  const found=eqItems.find(e=>e.name===name);
+  if(found){ found.count++; }
+  else{ eqItems.push({name,count:1}); }
+  renderEqTags();
+}
+
+// プリセットボタン
+document.querySelectorAll('.eq-preset-btn[data-name]').forEach(btn=>{
+  btn.addEventListener('click',()=>addEqItem(btn.dataset.name));
+});
+
+// その他ボタン
+$('eqOtherBtn').addEventListener('click',()=>{
+  const w=$('eqCustomWrap');
+  const show=w.style.display==='none';
+  w.style.display=show?'flex':'none';
+  if(show) $('eqCustomInput').focus();
+});
+
+// カスタム追加
+function addCustomEq(){
+  const name=$('eqCustomInput').value.trim();
+  if(!name){$('eqCustomInput').focus();return;}
+  addEqItem(name);
+  $('eqCustomInput').value='';
+  $('eqCustomWrap').style.display='none';
+}
+$('eqCustomAdd').addEventListener('click',addCustomEq);
+$('eqCustomInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addCustomEq();}});
 
 // ── Progress slider ───────────────────────────────────────
 {const r=$('progressRange'),v=$('progressVal');
@@ -1463,21 +1559,32 @@ $('fbSubmit').addEventListener('click',async()=>{
     showFbThanks();
     return;
   }
-  $('fbSubmit').disabled=true;
-  $('fbSubmit').textContent='送信中...';
-  const params=new URLSearchParams();
-  params.set(GF_ENTRY.q1, q1);
-  if($('fbSize').value)  params.set(GF_ENTRY.q2, $('fbSize').value);
-  if($('fbPref').value)  params.set(GF_ENTRY.q3, $('fbPref').value);
-  try{
-    // no-cors: レスポンスは opaque だが Google Forms にはデータが届く
-    await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params});
-  }catch(e){
-    // ネットワークエラーでも表示上は成功扱い（no-corsでは区別不可）
-    console.warn('feedback fetch error (may be no-cors opaque):', e);
-  }
-  $('fbSubmit').disabled=false;
-  $('fbSubmit').textContent='送信する →';
+  // iframe 経由で送信（CORS回避。Google Formsは同一ページのリダイレクトを返すが
+  // iframe内で処理されるためページ遷移なし。データは正常に記録される）
+  const iframeName='gf_iframe_'+Date.now();
+  const iframe=document.createElement('iframe');
+  iframe.name=iframeName; iframe.style.display='none';
+  document.body.appendChild(iframe);
+
+  const form=document.createElement('form');
+  form.method='POST'; form.action=url; form.target=iframeName;
+  [[GF_ENTRY.q1,q1],
+   [GF_ENTRY.q2,$('fbSize').value],
+   [GF_ENTRY.q3,$('fbPref').value],
+  ].forEach(([name,val])=>{
+    if(!val) return;
+    const inp=document.createElement('input');
+    inp.type='hidden'; inp.name=name; inp.value=val;
+    form.appendChild(inp);
+  });
+  document.body.appendChild(form);
+  form.submit();
+
+  // フォームとiframeを3秒後にクリーンアップ
+  setTimeout(()=>{
+    try{document.body.removeChild(form);}catch(e){}
+    try{document.body.removeChild(iframe);}catch(e){}
+  },3000);
   showFbThanks();
 });
 
