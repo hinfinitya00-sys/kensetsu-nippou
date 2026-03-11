@@ -110,14 +110,23 @@ kensetsu-nippou/
 
 ---
 
+## デプロイ情報
+
+| 種別 | URL |
+|------|-----|
+| GitHubリポジトリ | https://github.com/hinfinitya00-sys/kensetsu-nippou |
+| GitHub Pages（iPhone音声入力用） | https://hinfinitya00-sys.github.io/kensetsu-nippou/daily-report.html |
+
 ## 作業再開時のコマンド
 
 ```bash
 cd /Users/sonodaayato/kensetsu-nippou
-open daily-report.html          # ブラウザで確認
-python3 -m http.server 8080     # ローカルHTTPSサーバー（iPhoneテスト用）
+open daily-report.html              # ブラウザで確認
+python3 -m http.server 8080         # ローカルサーバー（iPhoneテスト用）
+
+git add -A && git commit -m "feat: ..." && git push   # 変更をpush
 ```
 
 ---
 
-*最終更新: 2026-03-11*
+*最終更新: 2026-03-12*
