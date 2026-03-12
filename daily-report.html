@@ -6,6 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>土木工事 日報システム</title>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
   <style>
     :root {
       --primary:      #f97316;
@@ -339,6 +340,53 @@
       padding:11px; font-size:11px; line-height:1.7; color:#92400e; margin-bottom:14px;
     }
     .s-info a { color:var(--primary-dark); }
+
+    /* QR share */
+    .qr-divider {
+      border:none; border-top:1px solid var(--border); margin:16px 0;
+    }
+    .qr-section-label {
+      font-size:11px; font-weight:800; color:var(--muted);
+      text-transform:uppercase; letter-spacing:.7px; margin-bottom:10px;
+    }
+    .qr-gen-btn {
+      width:100%; background:var(--secondary); color:#fff; border:none;
+      border-radius:9px; padding:12px; font-size:14px; font-weight:700;
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
+      gap:8px; transition:opacity .2s;
+    }
+    .qr-gen-btn:disabled { opacity:.5; cursor:not-allowed; }
+    .qr-panel {
+      display:none; margin-top:12px;
+    }
+    .qr-warning {
+      background:#fef3c7; border:1px solid #fcd34d; border-radius:9px;
+      padding:10px 12px; font-size:11px; color:#92400e; line-height:1.7;
+      margin-bottom:12px;
+    }
+    .qr-canvas-wrap {
+      display:flex; justify-content:center; align-items:center;
+      padding:16px; background:#fff; border-radius:10px;
+      border:1px solid var(--border);
+    }
+    .qr-canvas-wrap canvas, .qr-canvas-wrap img { display:block; }
+    .qr-hint {
+      text-align:center; font-size:12px; color:var(--muted);
+      margin-top:10px; line-height:1.6;
+    }
+    .qr-close-btn {
+      width:100%; background:var(--bg); color:var(--muted); border:none;
+      border-radius:8px; padding:10px; font-size:13px; cursor:pointer; margin-top:10px;
+    }
+
+    /* 自動適用バナー */
+    .setup-banner {
+      display:none; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:10px;
+      padding:12px 14px; font-size:13px; color:#065f46; margin-bottom:12px;
+      align-items:center; gap:8px; font-weight:600;
+    }
+    .setup-banner.show { display:flex; }
+
     .save-btn {
       width:100%; background:var(--primary); color:#fff; border:none;
       border-radius:9px; padding:13px; font-size:14px; font-weight:700; cursor:pointer;
@@ -403,6 +451,7 @@
 
 <main>
   <div class="alert-banner" id="alertBanner">⚠️ <span>APIキーが未設定です。タップして設定してください。</span></div>
+  <div class="setup-banner" id="setupBanner">✅ <span id="setupBannerText">APIキーを自動設定しました</span></div>
 
   <form id="mainForm">
 
@@ -902,6 +951,31 @@
     </div>
 
     <button class="save-btn" id="saveSettingsBtn">保存する</button>
+
+    <hr class="qr-divider">
+    <div class="qr-section-label">📱 他のデバイスへ共有</div>
+
+    <button type="button" class="qr-gen-btn" id="qrGenBtn">
+      <span>QRコードでAPIキーを共有</span>
+    </button>
+
+    <div class="qr-panel" id="qrPanel">
+      <div class="qr-warning">
+        ⚠️ <strong>セキュリティに注意してください</strong><br>
+        このQRコードにはAPIキーが含まれます。<br>
+        ・公共の場での表示は避けてください<br>
+        ・スクリーンショットを他人に送らないでください<br>
+        ・QRコードを読み取ると自動でAPIキーが設定され、URLのハッシュは即座に消去されます
+      </div>
+      <div class="qr-canvas-wrap">
+        <div id="qrCanvas"></div>
+      </div>
+      <p class="qr-hint">
+        iPhoneのカメラでQRコードをスキャン<br>
+        → ブラウザで開くと自動でAPIキーが設定されます
+      </p>
+      <button type="button" class="qr-close-btn" id="qrCloseBtn">閉じる</button>
+    </div>
   </div>
 </div>
 
@@ -1653,6 +1727,82 @@ function showFbThanks(){
 // スキップ
 $('fbSkip').addEventListener('click',()=>{
   $('feedbackCard').style.display='none';
+});
+
+// ── URLハッシュからAPIキーを自動適用（QR共有の受け取り側）────────
+(function applyHashSetup(){
+  try{
+    const hash = location.hash;
+    if(!hash.startsWith('#setup=')) return;
+
+    // ハッシュをすぐ消去（ブラウザ履歴に残さない）
+    history.replaceState(null,'',location.pathname+location.search);
+
+    const encoded = hash.slice(7);
+    // btoa/atob は ASCII のみ。日本語などUnicode対応のため unescape/escape を使用
+    const json = decodeURIComponent(escape(atob(encoded)));
+    const p = JSON.parse(json);
+
+    let applied = [];
+    if(p.k)  { localStorage.setItem(SK.oai, p.k);   applied.push('OpenAI APIキー'); }
+    if(p.m)  { localStorage.setItem(SK.mdl, p.m);   }
+    if(p.gcid){ localStorage.setItem(SK.gcid, p.gcid); applied.push('Google クライアントID'); }
+    if(p.gf) { localStorage.setItem(SK.gf,  p.gf);  applied.push('Google Forms URL'); }
+
+    if(applied.length === 0) return;
+
+    // 成功バナーを表示（3秒後に消す）
+    const banner = $('setupBanner');
+    $('setupBannerText').textContent = applied.join('・') + ' を自動設定しました ✓';
+    banner.classList.add('show');
+    setTimeout(()=>banner.classList.remove('show'), 5000);
+    console.log('[QR Setup] 適用済み:', applied);
+  }catch(e){
+    console.warn('[QR Setup] ハッシュ解析失敗:', e.message);
+  }
+})();
+
+// ── QRコード生成（送り出し側）──────────────────────────────
+$('qrGenBtn').addEventListener('click',()=>{
+  const s = getS();
+  if(!s.openaiKey){
+    showToast('APIキーを先に保存してください','err');
+    return;
+  }
+  if(typeof QRCode === 'undefined'){
+    showToast('QRコードライブラリの読み込み中です。少し待ってから再試行してください。','err',4000);
+    return;
+  }
+
+  // 共有ペイロードを生成
+  const payload = { k: s.openaiKey, m: s.model };
+  if(s.gcid) payload.gcid = s.gcid;
+  if(s.gformsUrl) payload.gf = s.gformsUrl;
+
+  // URLにハッシュとして埋め込む（サーバーに送信されない）
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const url = location.origin + location.pathname + '#setup=' + encoded;
+
+  // QRコード描画
+  const canvas = $('qrCanvas');
+  canvas.innerHTML = '';
+  new QRCode(canvas,{
+    text:       url,
+    width:      200,
+    height:     200,
+    colorDark:  '#1e293b',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M,
+  });
+
+  $('qrPanel').style.display = 'block';
+  $('qrPanel').scrollIntoView({behavior:'smooth', block:'nearest'});
+  console.log('[QR Gen] 生成完了 payload keys:', Object.keys(payload));
+});
+
+$('qrCloseBtn').addEventListener('click',()=>{
+  $('qrPanel').style.display = 'none';
+  $('qrCanvas').innerHTML = '';
 });
 
 // ── Init ──────────────────────────────────────────────────
