@@ -997,7 +997,7 @@ const getS=()=>({
   openaiKey:  localStorage.getItem(SK.oai)||'',
   model:      localStorage.getItem(SK.mdl)||'gpt-4o',
   gcid:       localStorage.getItem(SK.gcid)||'',
-  gformsUrl:  localStorage.getItem(SK.gf)||'https://docs.google.com/forms/d/e/1FAIpQLSfQ-UFre5i-eNflkY0mqYE9zmoLZb392njDJamYKcyypB2y-Q/formResponse',
+  gformsUrl:  localStorage.getItem(SK.gf)||'https://docs.google.com/forms/d/e/1FAIpQLSfTmUvs7vJVpk_53L5_T_Ka1-g5sy_R63-yPyaPMC34nR3tvg/formResponse',
 });
 function loadS(){
   const s=getS();
@@ -1593,9 +1593,9 @@ async function findOrCreateFolder(name){
 // → 各フィールドに仮テキストを入力 →「リンクを取得」→ URLに entry.XXXXXXXXXX が含まれる
 //
 const GF_ENTRY = {
-  q1: 'entry.1922105824',  // Q1: 大変な書類作業（記述式）
-  q2: 'entry.1212810885',  // Q2: 会社の規模（ラジオ）
-  q3: 'entry.1633433295',  // Q3: 都道府県（記述式）
+  q1: 'entry.697222466',   // Q1: 大変な書類作業（記述式）
+  q2: 'entry.1984207983',  // Q2: 会社の規模（ラジオ）
+  q3: 'entry.631647319',   // Q3: 都道府県（記述式）
 };
 
 // 会社規模ボタン
@@ -1708,7 +1708,8 @@ $('fbSubmit').addEventListener('click', async()=>{
   $('fbSubmit').textContent = '送信中...';
 
   await submitToGoogleForms(url, [
-    [GF_ENTRY.q1, q1],
+    [GF_ENTRY.q1, '__other_option__'],
+    [GF_ENTRY.q1+'.other_option_response', q1],
     [GF_ENTRY.q2, $('fbSize').value],
     [GF_ENTRY.q3, $('fbPref').value],
   ]);
