@@ -1548,43 +1548,100 @@ function showFeedback(){
   setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'nearest'}),400);
 }
 
-// 送信
-$('fbSubmit').addEventListener('click',async()=>{
-  const q1=$('fbQ1').value.trim();
-  if(!q1){showToast('回答を入力してください','err');$('fbQ1').focus();return;}
-  const url=getS().gformsUrl;
-  if(!url){
-    // URL未設定でも送信ボタンを押したことを記録してお礼表示（UXを損なわない）
-    showToast('Google Forms URLが未設定のため送信をスキップしました','',3000);
-    showFbThanks();
-    return;
+// ── フィードバック送信 ─────────────────────────────────────
+//
+// 【重要】Google Forms が 401 を返す場合の対処：
+//   フォーム編集画面 → ⚙️設定 → 「回答」タブ →
+//   「Googleへのログインが必要」をオフ にしてください。
+//   公開フォームでないと no-cors / iframe のどちらでもデータが届きません。
+//
+// デバッグ方法：
+//   ブラウザの開発者ツール → Console タブを開いてから送信ボタンを押す。
+//   "[GForms]" プレフィックスのログで送信状況を確認できます。
+//
+const GF_DEBUG = true; // 本番運用時は false に変更可
+function gfLog(...args){ if(GF_DEBUG) console.log('[GForms]',...args); }
+
+async function submitToGoogleForms(url, entries){
+  gfLog('送信開始 url=', url, 'entries=', entries);
+
+  const body = new URLSearchParams();
+  entries.forEach(([k,v])=>{ if(v) body.set(k,v); });
+  gfLog('送信ボディ:', body.toString());
+
+  // ─ 方法①: no-cors fetch（公開フォームなら確実に届く。レスポンスはopaque）
+  try{
+    const res = await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: body.toString(),
+    });
+    // no-cors では res.status は常に 0、res.type は 'opaque'
+    gfLog('fetch 完了 (no-cors) type=', res.type, '※opaqueは正常');
+    return true;
+  } catch(fetchErr){
+    gfLog('fetch 失敗:', fetchErr.message, '→ iframe fallback へ');
   }
-  // iframe 経由で送信（CORS回避。Google Formsは同一ページのリダイレクトを返すが
-  // iframe内で処理されるためページ遷移なし。データは正常に記録される）
-  const iframeName='gf_iframe_'+Date.now();
-  const iframe=document.createElement('iframe');
-  iframe.name=iframeName; iframe.style.display='none';
-  document.body.appendChild(iframe);
 
-  const form=document.createElement('form');
-  form.method='POST'; form.action=url; form.target=iframeName;
-  [[GF_ENTRY.q1,q1],
-   [GF_ENTRY.q2,$('fbSize').value],
-   [GF_ENTRY.q3,$('fbPref').value],
-  ].forEach(([name,val])=>{
-    if(!val) return;
-    const inp=document.createElement('input');
-    inp.type='hidden'; inp.name=name; inp.value=val;
-    form.appendChild(inp);
+  // ─ 方法②: hidden iframe fallback（fetch が完全ブロックされる環境向け）
+  return new Promise(resolve=>{
+    const id = 'gf_iframe_' + Date.now();
+    const iframe = document.createElement('iframe');
+    iframe.name = id;
+    iframe.style.cssText = 'display:none;position:fixed;top:-9999px;';
+    iframe.onload = ()=>{
+      gfLog('iframe onload 発火（送信完了またはリダイレクト）');
+      resolve(true);
+      setTimeout(()=>{
+        try{document.body.removeChild(iframe);}catch(e){}
+        try{document.body.removeChild(form);}catch(e){}
+      },1000);
+    };
+    document.body.appendChild(iframe);
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url;
+    form.target = id;
+    entries.forEach(([k,v])=>{
+      if(!v) return;
+      const inp = document.createElement('input');
+      inp.type='hidden'; inp.name=k; inp.value=v;
+      form.appendChild(inp);
+    });
+    document.body.appendChild(form);
+    gfLog('iframe form.submit() 実行');
+    form.submit();
+
+    // タイムアウト（iframe.onload が発火しない場合）
+    setTimeout(()=>{ gfLog('iframe タイムアウト→成功扱い'); resolve(true); },5000);
   });
-  document.body.appendChild(form);
-  form.submit();
+}
 
-  // フォームとiframeを3秒後にクリーンアップ
-  setTimeout(()=>{
-    try{document.body.removeChild(form);}catch(e){}
-    try{document.body.removeChild(iframe);}catch(e){}
-  },3000);
+$('fbSubmit').addEventListener('click', async()=>{
+  const q1 = $('fbQ1').value.trim();
+  if(!q1){ showToast('回答を入力してください','err'); $('fbQ1').focus(); return; }
+
+  const url = getS().gformsUrl;
+  if(!url){
+    gfLog('URLが未設定のためスキップ');
+    showToast('Google Forms URLが未設定のため送信をスキップしました','',3000);
+    showFbThanks(); return;
+  }
+
+  $('fbSubmit').disabled = true;
+  $('fbSubmit').textContent = '送信中...';
+
+  await submitToGoogleForms(url, [
+    [GF_ENTRY.q1, q1],
+    [GF_ENTRY.q2, $('fbSize').value],
+    [GF_ENTRY.q3, $('fbPref').value],
+  ]);
+
+  gfLog('送信処理完了 → お礼画面へ');
+  $('fbSubmit').disabled = false;
+  $('fbSubmit').textContent = '送信する →';
   showFbThanks();
 });
 
