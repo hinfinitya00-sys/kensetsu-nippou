@@ -22,6 +22,9 @@ Thumbs.db
 *.key
 secrets.json
 
+# Netlify
+.netlify/
+
 # ログ
 *.log
 npm-debug.log*

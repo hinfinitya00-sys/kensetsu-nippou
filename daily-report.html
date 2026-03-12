@@ -450,7 +450,7 @@
 </header>
 
 <main>
-  <div class="alert-banner" id="alertBanner">⚠️ <span>APIキーが未設定です。タップして設定してください。</span></div>
+  <div class="alert-banner" id="alertBanner">⚠️ <span>会社APIキーが未設定です。タップして設定してください。</span></div>
   <div class="setup-banner" id="setupBanner">✅ <span id="setupBannerText">APIキーを自動設定しました</span></div>
 
   <form id="mainForm">
@@ -923,12 +923,18 @@
       ⚠️ APIキーはこのデバイスのlocalStorageにのみ保存されます。共有ファイルへの記載は絶対に避けてください。
     </div>
     <div class="fg">
-      <label>OpenAI APIキー<span class="req">*</span></label>
-      <div class="kw"><input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off">
-        <button type="button" class="tvis" data-target="openaiKey">👁️</button></div>
-      <div class="hint"><a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener" style="color:var(--primary-dark);">platform.openai.com/api-keys</a> で取得</div>
+      <label>会社APIキー<span class="req">*</span></label>
+      <div class="kw"><input type="password" id="companyApiKey" placeholder="KN-..." autocomplete="off">
+        <button type="button" class="tvis" data-target="companyApiKey">👁️</button></div>
+      <div class="hint">管理者から発行された会社APIキーを入力してください。日報生成に使用します。</div>
     </div>
     <div class="fg">
+      <label>OpenAI APIキー（音声入力用・任意）</label>
+      <div class="kw"><input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off">
+        <button type="button" class="tvis" data-target="openaiKey">👁️</button></div>
+      <div class="hint">Whisper音声入力を使う場合のみ必要です。<a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener" style="color:var(--primary-dark);">platform.openai.com/api-keys</a> で取得</div>
+    </div>
+    <div class="fg" style="display:none;">
       <label>使用モデル</label>
       <select id="modelSelect">
         <option value="gpt-4o">GPT-4o（推奨・高精度）</option>
@@ -992,24 +998,27 @@ function showToast(msg, type='', dur=3200) {
 }
 
 // ── Settings ────────────────────────────────────────────
-const SK={oai:'dr_oai',mdl:'dr_mdl',gcid:'dr_gcid',gf:'dr_gforms'};
+const SK={cak:'dr_cak',oai:'dr_oai',mdl:'dr_mdl',gcid:'dr_gcid',gf:'dr_gforms'};
 const getS=()=>({
-  openaiKey:  localStorage.getItem(SK.oai)||'',
-  model:      localStorage.getItem(SK.mdl)||'gpt-4o',
-  gcid:       localStorage.getItem(SK.gcid)||'',
-  gformsUrl:  localStorage.getItem(SK.gf)||'https://docs.google.com/forms/d/e/1FAIpQLSfTmUvs7vJVpk_53L5_T_Ka1-g5sy_R63-yPyaPMC34nR3tvg/formResponse',
+  companyApiKey: localStorage.getItem(SK.cak)||'',
+  openaiKey:     localStorage.getItem(SK.oai)||'',  // Whisper音声入力用（任意）
+  model:         localStorage.getItem(SK.mdl)||'gpt-4o',
+  gcid:          localStorage.getItem(SK.gcid)||'',
+  gformsUrl:     localStorage.getItem(SK.gf)||'https://docs.google.com/forms/d/e/1FAIpQLSfTmUvs7vJVpk_53L5_T_Ka1-g5sy_R63-yPyaPMC34nR3tvg/formResponse',
 });
 function loadS(){
   const s=getS();
+  $('companyApiKey').value=s.companyApiKey;
   $('openaiKey').value=s.openaiKey;
   $('modelSelect').value=s.model;
   $('googleClientId').value=s.gcid;
   $('gformsUrl').value=s.gformsUrl;
 }
 function saveS(){
-  const k=$('openaiKey').value.trim();
-  if(!k){showToast('OpenAI APIキーを入力してください','err');return;}
-  localStorage.setItem(SK.oai,k);
+  const cak=$('companyApiKey').value.trim();
+  if(!cak){showToast('会社APIキーを入力してください','err');return;}
+  localStorage.setItem(SK.cak,cak);
+  localStorage.setItem(SK.oai,$('openaiKey').value.trim());
   localStorage.setItem(SK.mdl,$('modelSelect').value);
   localStorage.setItem(SK.gcid,$('googleClientId').value.trim());
   localStorage.setItem(SK.gf,$('gformsUrl').value.trim());
@@ -1018,7 +1027,7 @@ function saveS(){
   checkKey();
 }
 function checkKey(){
-  $('alertBanner').classList.toggle('show',!getS().openaiKey);
+  $('alertBanner').classList.toggle('show',!getS().companyApiKey);
 }
 $('settingsBtn').addEventListener('click',()=>{loadS();$('settingsOverlay').classList.add('open');});
 $('closeSettings').addEventListener('click',closeSettings);
@@ -1302,8 +1311,8 @@ $('mainForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const amW=$('weatherAM').value, pmW=$('weatherPM').value;
   if(!amW||!pmW){$('wxHint').style.display='block';$('wxHint').scrollIntoView({behavior:'smooth',block:'center'});return;}
-  const{openaiKey,model}=getS();
-  if(!openaiKey){showToast('APIキーを設定してください','err');loadS();$('settingsOverlay').classList.add('open');return;}
+  const{companyApiKey}=getS();
+  if(!companyApiKey){showToast('会社APIキーを設定してください','err');loadS();$('settingsOverlay').classList.add('open');return;}
   stopAllVoice();
   const d=collectForm();
   $('submitBtn').disabled=true;
@@ -1311,7 +1320,7 @@ $('mainForm').addEventListener('submit',async e=>{
   $('loadingCard').style.display='block';
   $('reportCard').style.display='none';
   try{
-    const rep=await callGPT(d,openaiKey,model);
+    const rep=await generateReport(d,companyApiKey);
     showReport(rep,d);
   }catch(err){
     $('mainForm').style.display='block';
@@ -1352,110 +1361,21 @@ function collectForm(){
   };
 }
 
-async function callGPT(d,key,model){
-  const dt=new Date(d.workDate+'T00:00:00').toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
-  const eqStr=d.equipment.length?d.equipment.map(e=>`・${e.name} × ${e.count}台`).join('\n'):'（記録なし）';
-  const wkrStr=`土木作業員:${d.workers.civil||0}名 / 重機オペレーター:${d.workers.ope||0}名 / 交通誘導員:${d.workers.traffic||0}名 / その他:${d.workers.other||0}名 / 合計:${d.workerTotal}名`;
-
-  const user=`
-【工事名称】${d.projectName}
-【現場名】${d.siteName||'—'}
-【工事番号】${d.projectNo||'—'}
-【元請会社】${d.contractor||'—'}
-【現場代理人】${d.supervisor||'—'}
-【作業日】${dt}
-【天候】午前:${d.weatherAM} / 午後:${d.weatherPM}${d.temperature?` / 気温:${d.temperature}℃`:''}
-【作業員構成】${wkrStr}
-【使用重機・機械】
-${eqStr}
-【工種】${d.workType}（進捗率:${d.progress}%）
-【本日の作業内容】
-${d.workContent||'（未記入）'}
-【明日の作業予定】
-${d.tomorrowPlan||'（未記入）'}
-【特記事項】
-${d.remarks||'なし'}
-【安全管理】朝礼:${d.morning||'未記入'} / KY活動:${d.ky||'未記入'} / ヒヤリハット:${d.hazard||'未記入'}${d.hazardDetail?` / 内容:${d.hazardDetail}`:''}
-${d.safetyNote?`【安全指示事項】${d.safetyNote}`:''}
-【品質管理】検査・立会:${d.inspection||'未記入'}${d.inspDetail?`（${d.inspDetail}）`:''} / 写真撮影:${d.photoCount}枚
-`.trim();
-
-  const sys=`あなたは土木・法面工事の経験豊富な現場監督です。
-与えられた現場情報をもとに、A4一枚に収まる正式な工事日報をですます調で作成してください。
-
-## 出力フォーマット（必ずこの通りに）
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-　　　　　工　事　日　報
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-【工事情報】
-工事名称：〇〇〇〇〇
-工事番号：〇〇〇　　現場名：〇〇〇
-元請会社：〇〇〇　　現場代理人：〇〇〇
-
-【作業日時・天候】
-作業日：〇年〇月〇日（〇）
-天候：午前 〇〇 ／ 午後 〇〇　　気温：〇〇
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【作業員構成】　計〇名
-土木作業員〇名　重機オペ〇名　交通誘導員〇名　その他〇名
-
-【使用重機・機械】
-（機械名と台数を列挙）
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【本日の作業概要】
-工種：〇〇　　進捗率：〇〇%
-（2〜3文で簡潔にですます調で）
-
-【作業詳細】
-（入力内容を整形し箇条書きで具体的に。専門用語を適切に使用。）
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【安全管理】
-朝礼：〇〇　KY活動：〇〇　ヒヤリハット：〇〇
-（ヒヤリハットがある場合は内容を記載）
-（安全指示事項を記載。入力がない場合も一般的な法面工事の安全注意事項を1〜2点補足。）
-
-【品質管理】
-検査・立会：〇〇（内容）
-写真撮影：〇〇枚
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【明日の作業予定】
-（入力内容を整形。未記入の場合は今日の作業の流れから自然に推測。）
-
-【特記事項・所見】
-（入力内容を記載。未記入なら「特になし」。）
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-作成日時：〇年〇月〇日 〇〇:〇〇
-担当者：＿＿＿＿＿＿＿＿＿＿＿＿（署名）
-
-## 注意事項
-- ですます調で統一すること
-- マークダウン記法（**太字**など）は一切使わない
-- A4一枚に収まる分量（800〜1100文字程度）
-- 専門用語（法枠、グラウンドアンカー、切土、盛土、法肩、法尻など）を適切に使用
-- 現在時刻を「作成日時」に記入すること`;
-
-  const r=await fetch('https://api.openai.com/v1/chat/completions',{
+async function generateReport(d, companyApiKey){
+  const r=await fetch('/.netlify/functions/generate-report',{
     method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-    body:JSON.stringify({model,messages:[{role:'system',content:sys},{role:'user',content:user}],max_tokens:2000,temperature:0.55}),
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({company_api_key:companyApiKey,form_data:d}),
   });
+  const dat=await r.json().catch(()=>({}));
   if(!r.ok){
-    const e=await r.json().catch(()=>({}));
-    if(r.status===401)throw new Error('APIキーが無効です。設定を確認してください。');
-    if(r.status===429)throw new Error('API利用制限に達しました。しばらく待ってから再試行してください。');
-    throw new Error(e.error?.message||'HTTPエラー '+r.status);
+    if(r.status===401)throw new Error('会社APIキーが無効です。設定を確認してください。');
+    if(r.status===403)throw new Error(dat.error||'アカウントの利用が制限されています。');
+    throw new Error(dat.error||'HTTPエラー '+r.status);
   }
-  const dat=await r.json();
-  const txt=dat.choices?.[0]?.message?.content;
+  const txt=dat.report;
   if(!txt)throw new Error('AIからの応答が空でした。');
-  return txt.trim();
+  return txt;
 }
 
 // ── Show report ───────────────────────────────────────────
@@ -1745,7 +1665,8 @@ $('fbSkip').addEventListener('click',()=>{
     const p = JSON.parse(json);
 
     let applied = [];
-    if(p.k)  { localStorage.setItem(SK.oai, p.k);   applied.push('OpenAI APIキー'); }
+    if(p.cak){ localStorage.setItem(SK.cak, p.cak); applied.push('会社APIキー'); }
+    if(p.k)  { localStorage.setItem(SK.oai, p.k);   applied.push('音声入力APIキー'); }
     if(p.m)  { localStorage.setItem(SK.mdl, p.m);   }
     if(p.gcid){ localStorage.setItem(SK.gcid, p.gcid); applied.push('Google クライアントID'); }
     if(p.gf) { localStorage.setItem(SK.gf,  p.gf);  applied.push('Google Forms URL'); }
@@ -1766,8 +1687,8 @@ $('fbSkip').addEventListener('click',()=>{
 // ── QRコード生成（送り出し側）──────────────────────────────
 $('qrGenBtn').addEventListener('click',()=>{
   const s = getS();
-  if(!s.openaiKey){
-    showToast('APIキーを先に保存してください','err');
+  if(!s.companyApiKey){
+    showToast('会社APIキーを先に保存してください','err');
     return;
   }
   if(typeof QRCode === 'undefined'){
@@ -1776,7 +1697,8 @@ $('qrGenBtn').addEventListener('click',()=>{
   }
 
   // 共有ペイロードを生成
-  const payload = { k: s.openaiKey, m: s.model };
+  const payload = { cak: s.companyApiKey, m: s.model };
+  if(s.openaiKey) payload.k = s.openaiKey;   // Whisper用（任意）
   if(s.gcid) payload.gcid = s.gcid;
   if(s.gformsUrl) payload.gf = s.gformsUrl;
 

@@ -1,0 +1,22 @@
+[build]
+  functions = "netlify/functions"
+  publish   = "."
+
+[functions]
+  node_bundler = "esbuild"
+
+# Functions は Node.js 18 以上を使用
+[functions."generate-report"]
+  node_bundler = "esbuild"
+
+# 環境変数（Netlify Dashboard > Site settings > Environment variables に設定）
+# OPENAI_API_KEY       = sk-...
+# SUPABASE_URL         = https://bjohdzcoziezdkqcebhe.supabase.co
+# SUPABASE_SECRET_KEY  = sb_secret_...
+
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin  = "*"
+    Access-Control-Allow-Methods = "POST, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
