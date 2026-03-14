@@ -241,8 +241,60 @@ exports.handler = async (event) => {
       }),
     });
   } catch (e) {
-    // ログ失敗は日報返却をブロックしない
     console.error('[generate-report] usage_logs insert failed:', e.message);
+  }
+
+  // ── STEP 4: プロジェクト自動作成 or 取得 ───────────────────
+  let projectId = null;
+  try {
+    const projectName = (form_data.projectName || '').trim();
+    if (projectName) {
+      const existing = await sbFetch(
+        `projects?company_id=eq.${encodeURIComponent(company.id)}&name=eq.${encodeURIComponent(projectName)}&select=id&limit=1`
+      );
+      if (Array.isArray(existing) && existing.length > 0) {
+        projectId = existing[0].id;
+      } else {
+        const created = await sbFetch('projects', {
+          method: 'POST',
+          body: JSON.stringify({
+            name:       projectName,
+            work_type:  form_data.workType   || null,
+            client:     form_data.contractor || null,
+            location:   form_data.siteName   || null,
+            status:     '進行中',
+            company_id: company.id,
+          }),
+        });
+        projectId = Array.isArray(created) ? created[0]?.id : created?.id;
+      }
+    }
+  } catch (e) {
+    console.error('[generate-report] project upsert failed:', e.message);
+  }
+
+  // ── STEP 5: daily_logs に保存 ──────────────────────────────
+  try {
+    await sbFetch('daily_logs', {
+      method: 'POST',
+      body: JSON.stringify({
+        project_id:        projectId,
+        company_id:        company.id,
+        work_date:         form_data.workDate        || null,
+        weather_am:        form_data.weatherAM       || null,
+        weather_pm:        form_data.weatherPM       || null,
+        work_description:  form_data.workContent     || null,
+        workers_count:     form_data.workerTotal      ?? null,
+        workers_detail:    form_data.workers          ? JSON.stringify(form_data.workers)   : null,
+        equipment_used:    form_data.equipment        ? JSON.stringify(form_data.equipment) : null,
+        safety_notes:      form_data.safetyNote       || null,
+        quality_notes:     form_data.inspection       || null,
+        progress_rate:     form_data.progress != null ? Number(form_data.progress) : null,
+        generated_report:  reportText,
+      }),
+    });
+  } catch (e) {
+    console.error('[generate-report] daily_logs insert failed:', e.message);
   }
 
   return json(200, { report: reportText });
